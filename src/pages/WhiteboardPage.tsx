@@ -14,7 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-type Tool = "pen" | "rectangle" | "circle" | "line" | "eraser";
+type Tool = "pen" | "rectangle" | "circle" | "line" | "eraser" | "text";
 
 interface Stroke {
   id?: string;
@@ -26,6 +26,7 @@ interface Stroke {
   startY: number;
   endX: number;
   endY: number;
+  text?: string;
 }
 
 const toolIcons: Record<Tool, React.ElementType> = {
@@ -34,6 +35,7 @@ const toolIcons: Record<Tool, React.ElementType> = {
   circle: Circle,
   line: Minus,
   eraser: Eraser,
+  text: Type,
 };
 
 const colors = ["#000000", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#FFFFFF"];
@@ -67,6 +69,11 @@ export default function WhiteboardPage() {
   // Sticky notes
   const [showNotes, setShowNotes] = useState(false);
   const [newNote, setNewNote] = useState("");
+
+  // Text tool state
+  const [textInput, setTextInput] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: false });
+  const [textValue, setTextValue] = useState("");
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
