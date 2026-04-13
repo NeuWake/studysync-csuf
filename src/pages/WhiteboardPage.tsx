@@ -247,12 +247,20 @@ export default function WhiteboardPage() {
     return [e.clientX - rect.left, e.clientY - rect.top];
   };
 
+  const textJustOpenedRef = useRef(false);
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const [x, y] = getPos(e);
     if (activeTool === "text") {
+      e.preventDefault();
+      e.stopPropagation();
+      textJustOpenedRef.current = true;
       setTextInput({ x, y, visible: true });
       setTextValue("");
-      setTimeout(() => textInputRef.current?.focus(), 50);
+      setTimeout(() => {
+        textInputRef.current?.focus();
+        textJustOpenedRef.current = false;
+      }, 100);
       return;
     }
     setIsDrawing(true);
