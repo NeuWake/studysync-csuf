@@ -567,12 +567,13 @@ export default function WhiteboardPage() {
       tool: finished.tool,
       points: finished.points as any,
       color: finished.color,
+      fill_color: finished.fillColor || null,
       stroke_width: finished.strokeWidth,
       start_x: finished.startX,
       start_y: finished.startY,
       end_x: finished.endX,
       end_y: finished.endY,
-    });
+    } as any);
   };
 
   // Clear board (delete all user's strokes)
