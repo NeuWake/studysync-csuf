@@ -165,14 +165,21 @@ export default function EventDialog({ open, onOpenChange, onSubmit, onDelete, in
             />
           </div>
 
-          <Button
-            className="w-full"
-            onClick={handleSubmit}
-            disabled={submitting || !formData.title.trim() || !formData.startTime}
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {mode === "create" ? "Create Event" : "Save Changes"}
-          </Button>
+          <div className="flex gap-2">
+            {mode === "edit" && onDelete && (
+              <Button variant="destructive" className="gap-2" onClick={onDelete} disabled={submitting}>
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
+            )}
+            <Button
+              className="flex-1"
+              onClick={handleSubmit}
+              disabled={submitting || !formData.title.trim() || !formData.startTime}
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {mode === "create" ? "Create Event" : "Save Changes"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
