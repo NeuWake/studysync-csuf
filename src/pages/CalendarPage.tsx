@@ -29,8 +29,17 @@ async function uploadEventImage(userId: string, file: File): Promise<string> {
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from("event-images").upload(path, file);
   if (error) throw error;
-  const { data } = supabase.storage.from("event-images").getPublicUrl(path);
-  return data.publicUrl;
+  // Store the storage path, not a public URL (bucket is now private)
+  return path;
+}
+
+async function getSignedImageUrl(path: string): Promise<string | null> {
+  if (!path) return null;
+  // If it's already a full URL (legacy), return as-is
+  if (path.startsWith("http")) return path;
+  const { data, error } = await supabase.storage.from("event-images").createSignedUrl(path, 3600);
+  if (error) return null;
+  return data.signedUrl;
 }
 
 export default function CalendarPage() {
