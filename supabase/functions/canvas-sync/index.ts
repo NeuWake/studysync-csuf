@@ -91,6 +91,38 @@ Deno.serve(async (req) => {
       "#8B5CF6", "#EC4899", "#14B8A6", "#F59E0B", "#6366F1",
     ];
 
+    const canvasIdSet = new Set(activeCourses.map((c) => String(c.id)));
+
+    // --- Clean up: remove user's old courses/assignments not in current Canvas ---
+    // Get all courses the user is enrolled in
+    const { data: userCourseRows } = await supabase
+      .from("user_courses")
+      .select("id, course_id, courses:course_id(id, canvas_course_id)")
+      .eq("user_id", user.id);
+
+    if (userCourseRows) {
+      for (const row of userCourseRows) {
+        const course = row.courses as any;
+        if (course?.canvas_course_id && !canvasIdSet.has(course.canvas_course_id)) {
+          // Remove user_assignments for assignments in this course
+          const { data: courseAssignments } = await supabase
+            .from("assignments")
+            .select("id")
+            .eq("course_id", course.id);
+          if (courseAssignments?.length) {
+            const assignIds = courseAssignments.map((a: any) => a.id);
+            await supabase
+              .from("user_assignments")
+              .delete()
+              .eq("user_id", user.id)
+              .in("assignment_id", assignIds);
+          }
+          // Remove user_course enrollment
+          await supabase.from("user_courses").delete().eq("id", row.id);
+        }
+      }
+    }
+
     let syncedCourses = 0;
     let syncedAssignments = 0;
     const errors: string[] = [];
@@ -153,6 +185,22 @@ Deno.serve(async (req) => {
         }
 
         const canvasAssignments: CanvasAssignment[] = await assignRes.json();
+        const canvasAssignIdSet = new Set(canvasAssignments.map((a) => String(a.id)));
+
+        // Clean up old assignments for this course not in current Canvas
+        const { data: dbAssignments } = await supabase
+          .from("assignments")
+          .select("id, canvas_assignment_id")
+          .eq("course_id", courseId)
+          .not("canvas_assignment_id", "is", null);
+
+        if (dbAssignments) {
+          for (const dbA of dbAssignments) {
+            if (dbA.canvas_assignment_id && !canvasAssignIdSet.has(dbA.canvas_assignment_id)) {
+              await supabase.from("user_assignments").delete().eq("user_id", user.id).eq("assignment_id", dbA.id);
+            }
+          }
+        }
 
         for (const ca of canvasAssignments) {
           // Determine assignment type from submission_types
