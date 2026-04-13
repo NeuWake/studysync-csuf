@@ -772,7 +772,10 @@ export default function WhiteboardPage() {
   const selectedBoardData = boards.find((b: any) => b.id === selectedBoard);
 
   const getCursor = () => {
-    if (activeTool === "select") return "cursor-default";
+    if (activeTool === "select") {
+      if (resizeHandle) return "cursor-nwse-resize";
+      return "cursor-default";
+    }
     if (activeTool === "eraser") return "cursor-cell";
     if (activeTool === "text") return "cursor-text";
     return "cursor-crosshair";
