@@ -91,6 +91,19 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
+function getResizeHandle(stroke: Stroke, px: number, py: number, padding = 4, handleRadius = 8): string | null {
+  if (stroke.tool === "pen" || stroke.tool === "eraser" || stroke.tool === "text") return null;
+  const minX = Math.min(stroke.startX, stroke.endX) - padding;
+  const maxX = Math.max(stroke.startX, stroke.endX) + padding;
+  const minY = Math.min(stroke.startY, stroke.endY) - padding;
+  const maxY = Math.max(stroke.startY, stroke.endY) + padding;
+  if (Math.hypot(px - minX, py - minY) < handleRadius) return "tl";
+  if (Math.hypot(px - maxX, py - minY) < handleRadius) return "tr";
+  if (Math.hypot(px - minX, py - maxY) < handleRadius) return "bl";
+  if (Math.hypot(px - maxX, py - maxY) < handleRadius) return "br";
+  return null;
+}
+
 export default function WhiteboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -114,6 +127,8 @@ export default function WhiteboardPage() {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const suppressRefetchRef = useRef(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null); // "tl" | "tr" | "bl" | "br" | null
+  const [resizeOrigin, setResizeOrigin] = useState<{ fixedX: number; fixedY: number } | null>(null);
 
   // Sticky notes
   const [showNotes, setShowNotes] = useState(false);
@@ -356,19 +371,34 @@ export default function WhiteboardPage() {
       ctx.strokeStyle = "#3B82F6";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([5, 3]);
+      let bx: number, by: number, bw: number, bh: number;
       if (stroke.tool === "pen" || stroke.tool === "eraser") {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const [sx, sy] of stroke.points) {
           minX = Math.min(minX, sx); minY = Math.min(minY, sy);
           maxX = Math.max(maxX, sx); maxY = Math.max(maxY, sy);
         }
-        ctx.strokeRect(minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8);
+        bx = minX - 4; by = minY - 4; bw = maxX - minX + 8; bh = maxY - minY + 8;
       } else {
-        const minX = Math.min(stroke.startX, stroke.endX);
-        const minY = Math.min(stroke.startY, stroke.endY);
-        const maxX = Math.max(stroke.startX, stroke.endX);
-        const maxY = Math.max(stroke.startY, stroke.endY);
-        ctx.strokeRect(minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8);
+        bx = Math.min(stroke.startX, stroke.endX) - 4;
+        by = Math.min(stroke.startY, stroke.endY) - 4;
+        bw = Math.abs(stroke.endX - stroke.startX) + 8;
+        bh = Math.abs(stroke.endY - stroke.startY) + 8;
+      }
+      ctx.strokeRect(bx, by, bw, bh);
+      // Draw resize handles (corners)
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = "#3B82F6";
+      ctx.lineWidth = 2;
+      const handleSize = 8;
+      const corners = [
+        [bx, by], [bx + bw, by],
+        [bx, by + bh], [bx + bw, by + bh],
+      ];
+      for (const [cx, cy] of corners) {
+        ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+        ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       }
       ctx.restore();
     }
@@ -417,12 +447,29 @@ export default function WhiteboardPage() {
     const [x, y] = getPos(e);
 
     if (activeTool === "select") {
+      // Check if clicking on a resize handle of the already-selected stroke
+      if (selectedStrokeIndex !== null) {
+        const s = localStrokes[selectedStrokeIndex];
+        const handle = getResizeHandle(s, x, y);
+        if (handle) {
+          setResizeHandle(handle);
+          // The fixed corner is the opposite of the handle being dragged
+          const minX = Math.min(s.startX, s.endX);
+          const maxX = Math.max(s.startX, s.endX);
+          const minY = Math.min(s.startY, s.endY);
+          const maxY = Math.max(s.startY, s.endY);
+          const fixedX = handle.includes("r") ? minX : maxX;
+          const fixedY = handle.includes("b") ? minY : maxY;
+          setResizeOrigin({ fixedX, fixedY });
+          return;
+        }
+      }
+
       // Find topmost stroke under cursor (reverse order)
       for (let i = localStrokes.length - 1; i >= 0; i--) {
         if (hitTestStroke(localStrokes[i], x, y)) {
           setSelectedStrokeIndex(i);
           const s = localStrokes[i];
-          // Calculate offset for dragging
           if (s.tool === "pen" || s.tool === "eraser") {
             let minX = Infinity, minY = Infinity;
             for (const [sx, sy] of s.points) { minX = Math.min(minX, sx); minY = Math.min(minY, sy); }
@@ -496,6 +543,21 @@ export default function WhiteboardPage() {
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const [x, y] = getPos(e);
 
+    // Handle resizing selected stroke
+    if (activeTool === "select" && resizeHandle && resizeOrigin && selectedStrokeIndex !== null) {
+      setLocalStrokes((prev) => {
+        const updated = [...prev];
+        const s = { ...updated[selectedStrokeIndex] };
+        s.startX = resizeOrigin.fixedX;
+        s.startY = resizeOrigin.fixedY;
+        s.endX = x;
+        s.endY = y;
+        updated[selectedStrokeIndex] = s;
+        return updated;
+      });
+      return;
+    }
+
     // Handle dragging selected stroke
     if (activeTool === "select" && isDragging && selectedStrokeIndex !== null && dragOffset) {
       setLocalStrokes((prev) => {
@@ -530,25 +592,40 @@ export default function WhiteboardPage() {
   };
 
   const handleMouseUp = async () => {
+    // Handle resize end
+    if (activeTool === "select" && resizeHandle && selectedStrokeIndex !== null) {
+      setResizeHandle(null);
+      setResizeOrigin(null);
+      const s = localStrokes[selectedStrokeIndex];
+      if (s.id) {
+        suppressRefetchRef.current = true;
+        await supabase.from("whiteboard_strokes").update({
+          start_x: s.startX, start_y: s.startY,
+          end_x: s.endX, end_y: s.endY,
+        }).eq("id", s.id);
+        setTimeout(() => {
+          suppressRefetchRef.current = false;
+          queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
+        }, 500);
+      }
+      return;
+    }
+
     // Handle select tool drop
     if (activeTool === "select" && isDragging && selectedStrokeIndex !== null) {
       setIsDragging(false);
       setDragOffset(null);
       const s = localStrokes[selectedStrokeIndex];
       if (s.id) {
-        // Suppress refetch while we persist the move
         suppressRefetchRef.current = true;
         const updateData: any = {
-          start_x: s.startX,
-          start_y: s.startY,
-          end_x: s.endX,
-          end_y: s.endY,
+          start_x: s.startX, start_y: s.startY,
+          end_x: s.endX, end_y: s.endY,
         };
         if (s.tool === "pen" || s.tool === "eraser") {
           updateData.points = s.points as any;
         }
         await supabase.from("whiteboard_strokes").update(updateData).eq("id", s.id);
-        // Allow refetch after a delay to let the realtime event pass
         setTimeout(() => {
           suppressRefetchRef.current = false;
           queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
@@ -695,7 +772,10 @@ export default function WhiteboardPage() {
   const selectedBoardData = boards.find((b: any) => b.id === selectedBoard);
 
   const getCursor = () => {
-    if (activeTool === "select") return "cursor-default";
+    if (activeTool === "select") {
+      if (resizeHandle) return "cursor-nwse-resize";
+      return "cursor-default";
+    }
     if (activeTool === "eraser") return "cursor-cell";
     if (activeTool === "text") return "cursor-text";
     return "cursor-crosshair";
