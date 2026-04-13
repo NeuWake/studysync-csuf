@@ -72,10 +72,35 @@ export default function AssignmentsPage() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: Status }) => {
+      const update: any = { status };
+      if (status === "completed") {
+        update.progress = 100;
+        update.completed_at = new Date().toISOString();
+      } else if (status === "in-progress") {
+        update.progress = 50;
+        update.completed_at = null;
+      } else {
+        update.progress = 0;
+        update.completed_at = null;
+      }
+      const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+      toast({ title: "Status updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
-      // Create the assignment
       const { data: assignment, error: aErr } = await supabase
         .from("assignments")
         .insert({
@@ -88,16 +113,9 @@ export default function AssignmentsPage() {
         .select()
         .single();
       if (aErr) throw aErr;
-
-      // Link to user
       const { error: uaErr } = await supabase
         .from("user_assignments")
-        .insert({
-          user_id: user.id,
-          assignment_id: assignment.id,
-          status: "pending",
-          progress: 0,
-        });
+        .insert({ user_id: user.id, assignment_id: assignment.id, status: "pending", progress: 0 });
       if (uaErr) throw uaErr;
       return assignment;
     },
@@ -212,10 +230,24 @@ export default function AssignmentsPage() {
                         <Progress value={a.progress || 0} className="h-2" />
                         <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress || 0}%</p>
                       </div>
-                      <Badge variant={sc.variant} className="gap-1">
-                        <sc.icon className="h-3 w-3" />
-                        {sc.label}
-                      </Badge>
+                      <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status })}>
+                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                          <div className="flex items-center gap-1">
+                            <sc.icon className="h-3 w-3" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.entries(statusConfig) as [Status, typeof sc][]).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-1.5">
+                                <cfg.icon className="h-3 w-3" />
+                                {cfg.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardContent>
