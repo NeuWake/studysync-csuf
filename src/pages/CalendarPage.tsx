@@ -289,7 +289,13 @@ export default function CalendarPage() {
                             {dayItems.slice(0, 3).map((item, j) => (
                               <div
                                 key={j}
-                                className="text-[10px] rounded px-1 truncate text-white"
+                                className={`text-[10px] rounded px-1 truncate text-white ${item.eventId ? "cursor-pointer" : ""}`}
+                                onClick={(e) => {
+                                  if (item.eventId && item.raw) {
+                                    e.stopPropagation();
+                                    openEdit(item.raw);
+                                  }
+                                }}
                               >
                                 <span
                                   className={`${item.color.startsWith("bg-") ? item.color + " text-white" : ""} block rounded px-0.5 flex items-center gap-0.5`}
