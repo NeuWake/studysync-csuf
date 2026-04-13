@@ -2,14 +2,35 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
+export interface AccentColor {
+  name: string;
+  hsl: string; // e.g. "25 95% 53%"
+  preview: string; // hex for preview swatch
+}
+
+export const ACCENT_COLORS: AccentColor[] = [
+  { name: "Orange", hsl: "25 95% 53%", preview: "#F97316" },
+  { name: "Blue", hsl: "217 91% 60%", preview: "#3B82F6" },
+  { name: "Violet", hsl: "263 70% 58%", preview: "#8B5CF6" },
+  { name: "Rose", hsl: "346 77% 55%", preview: "#E11D48" },
+  { name: "Emerald", hsl: "160 84% 39%", preview: "#10B981" },
+  { name: "Amber", hsl: "38 92% 50%", preview: "#F59E0B" },
+  { name: "Cyan", hsl: "189 94% 43%", preview: "#06B6D4" },
+  { name: "Pink", hsl: "330 81% 60%", preview: "#EC4899" },
+];
+
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  accentColor: AccentColor;
+  setAccentColor: (color: AccentColor) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   toggleTheme: () => {},
+  accentColor: ACCENT_COLORS[0],
+  setAccentColor: () => {},
 });
 
 export const useTheme = () => useContext(ThemeContext);
@@ -20,15 +41,35 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return (stored as Theme) || "light";
   });
 
+  const [accentColor, setAccentColorState] = useState<AccentColor>(() => {
+    const stored = localStorage.getItem("studysync-accent");
+    if (stored) {
+      const found = ACCENT_COLORS.find((c) => c.name === stored);
+      if (found) return found;
+    }
+    return ACCENT_COLORS[0];
+  });
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("studysync-theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--primary", accentColor.hsl);
+    root.style.setProperty("--ring", accentColor.hsl);
+    root.style.setProperty("--sidebar-primary", accentColor.hsl);
+    root.style.setProperty("--sidebar-ring", accentColor.hsl);
+    localStorage.setItem("studysync-accent", accentColor.name);
+  }, [accentColor]);
+
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 
+  const setAccentColor = (color: AccentColor) => setAccentColorState(color);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, accentColor, setAccentColor }}>
       {children}
     </ThemeContext.Provider>
   );

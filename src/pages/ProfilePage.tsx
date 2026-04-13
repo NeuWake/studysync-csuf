@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Save, Key, GraduationCap, Calendar, Loader2 } from "lucide-react";
+import ThemeSettingsCard from "@/components/profile/ThemeSettingsCard";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -181,6 +182,8 @@ export default function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <ThemeSettingsCard />
 
       <Card>
         <CardHeader>
