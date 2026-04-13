@@ -53,22 +53,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get user's Canvas credentials from profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+    // Get user's Canvas credentials from separate credentials table
+    const { data: creds, error: credsError } = await supabase
+      .from("user_canvas_credentials")
       .select("canvas_access_token, canvas_base_url")
       .eq("user_id", user.id)
       .single();
 
-    if (profileError || !profile?.canvas_access_token) {
+    if (credsError || !creds?.canvas_access_token) {
       return new Response(JSON.stringify({ error: "Canvas access token not configured. Please add it in your profile settings." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const canvasToken = profile.canvas_access_token;
-    const canvasBaseUrl = (profile.canvas_base_url || "https://canvas.instructure.com").replace(/\/$/, "");
+    const canvasToken = creds.canvas_access_token;
+    const canvasBaseUrl = (creds.canvas_base_url || "https://canvas.instructure.com").replace(/\/$/, "");
 
     // 1. Fetch courses from Canvas
     const coursesRes = await fetch(`${canvasBaseUrl}/api/v1/courses?per_page=100&enrollment_state=active&include[]=total_scores`, {
