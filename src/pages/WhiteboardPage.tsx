@@ -363,6 +363,8 @@ export default function WhiteboardPage() {
       const { error } = await supabase.from("whiteboard_notes").delete().eq("id", noteId);
       if (error) throw error;
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whiteboard_notes", selectedBoard] }),
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   const selectedBoardData = boards.find((b: any) => b.id === selectedBoard);
