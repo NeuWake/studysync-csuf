@@ -236,6 +236,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accent_color: string | null
           avatar_url: string | null
           canvas_access_token: string | null
           canvas_base_url: string | null
@@ -248,11 +249,13 @@ export type Database = {
           major: string | null
           study_interests: string | null
           study_streaks: number | null
+          theme_mode: string | null
           university: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          accent_color?: string | null
           avatar_url?: string | null
           canvas_access_token?: string | null
           canvas_base_url?: string | null
@@ -265,11 +268,13 @@ export type Database = {
           major?: string | null
           study_interests?: string | null
           study_streaks?: number | null
+          theme_mode?: string | null
           university?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          accent_color?: string | null
           avatar_url?: string | null
           canvas_access_token?: string | null
           canvas_base_url?: string | null
@@ -282,6 +287,7 @@ export type Database = {
           major?: string | null
           study_interests?: string | null
           study_streaks?: number | null
+          theme_mode?: string | null
           university?: string | null
           updated_at?: string
           user_id?: string
