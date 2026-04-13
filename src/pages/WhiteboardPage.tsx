@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type } from "lucide-react";
+import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-type Tool = "pen" | "rectangle" | "circle" | "line" | "eraser" | "text";
+type Tool = "select" | "pen" | "rectangle" | "circle" | "line" | "eraser" | "text" | "triangle" | "diamond" | "arrow" | "star" | "hexagon";
 
 interface Stroke {
   id?: string;
@@ -30,10 +30,16 @@ interface Stroke {
 }
 
 const toolIcons: Record<Tool, React.ElementType> = {
+  select: MousePointer2,
   pen: Pencil,
+  line: Minus,
+  arrow: ArrowRight,
   rectangle: Square,
   circle: Circle,
-  line: Minus,
+  triangle: Triangle,
+  diamond: Diamond,
+  hexagon: Hexagon,
+  star: Star,
   eraser: Eraser,
   text: Type,
 };
@@ -48,6 +54,39 @@ const noteColorClasses: Record<string, string> = {
   "#FCE7F3": "bg-pink-100 dark:bg-pink-900/30 border-pink-300 dark:border-pink-700",
   "#EDE9FE": "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700",
 };
+
+// Helper to check if a point is near a stroke for hit-testing
+function hitTestStroke(stroke: Stroke, px: number, py: number, threshold = 8): boolean {
+  if (stroke.tool === "pen" || stroke.tool === "eraser") {
+    for (const [sx, sy] of stroke.points) {
+      if (Math.hypot(px - sx, py - sy) < threshold) return true;
+    }
+    return false;
+  }
+  if (stroke.tool === "line" || stroke.tool === "arrow") {
+    return distToSegment(px, py, stroke.startX, stroke.startY, stroke.endX, stroke.endY) < threshold;
+  }
+  if (stroke.tool === "text" && stroke.text) {
+    const w = stroke.text.length * Math.max(stroke.strokeWidth * 3, 10);
+    const h = Math.max(stroke.strokeWidth * 5, 16) * 1.2;
+    return px >= stroke.startX && px <= stroke.startX + w && py >= stroke.startY && py <= stroke.startY + h;
+  }
+  // Bounding-box based shapes
+  const minX = Math.min(stroke.startX, stroke.endX);
+  const maxX = Math.max(stroke.startX, stroke.endX);
+  const minY = Math.min(stroke.startY, stroke.endY);
+  const maxY = Math.max(stroke.startY, stroke.endY);
+  return px >= minX - threshold && px <= maxX + threshold && py >= minY - threshold && py <= maxY + threshold;
+}
+
+function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
 
 export default function WhiteboardPage() {
   const { user } = useAuth();
@@ -65,6 +104,11 @@ export default function WhiteboardPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
   const [localStrokes, setLocalStrokes] = useState<Stroke[]>([]);
+
+  // Select tool state
+  const [selectedStrokeIndex, setSelectedStrokeIndex] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Sticky notes
   const [showNotes, setShowNotes] = useState(false);
@@ -153,6 +197,7 @@ export default function WhiteboardPage() {
   const dbStrokesJson = JSON.stringify(dbStrokes);
   useEffect(() => {
     setLocalStrokes(JSON.parse(dbStrokesJson));
+    setSelectedStrokeIndex(null);
   }, [dbStrokesJson]);
 
   // Realtime for strokes and notes
@@ -171,8 +216,9 @@ export default function WhiteboardPage() {
   }, [selectedBoard, queryClient]);
 
   // --- Canvas rendering ---
-  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {
+  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke, isSelected = false) => {
     ctx.strokeStyle = stroke.tool === "eraser" ? "#FFFFFF" : stroke.color;
+    ctx.fillStyle = stroke.color;
     ctx.lineWidth = stroke.tool === "eraser" ? stroke.strokeWidth * 3 : stroke.strokeWidth;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -190,6 +236,21 @@ export default function WhiteboardPage() {
       ctx.moveTo(stroke.startX, stroke.startY);
       ctx.lineTo(stroke.endX, stroke.endY);
       ctx.stroke();
+    } else if (stroke.tool === "arrow") {
+      // Draw line
+      ctx.beginPath();
+      ctx.moveTo(stroke.startX, stroke.startY);
+      ctx.lineTo(stroke.endX, stroke.endY);
+      ctx.stroke();
+      // Arrowhead
+      const angle = Math.atan2(stroke.endY - stroke.startY, stroke.endX - stroke.startX);
+      const headLen = Math.max(stroke.strokeWidth * 4, 12);
+      ctx.beginPath();
+      ctx.moveTo(stroke.endX, stroke.endY);
+      ctx.lineTo(stroke.endX - headLen * Math.cos(angle - Math.PI / 6), stroke.endY - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.moveTo(stroke.endX, stroke.endY);
+      ctx.lineTo(stroke.endX - headLen * Math.cos(angle + Math.PI / 6), stroke.endY - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.stroke();
     } else if (stroke.tool === "rectangle") {
       ctx.beginPath();
       ctx.strokeRect(stroke.startX, stroke.startY, stroke.endX - stroke.startX, stroke.endY - stroke.startY);
@@ -201,12 +262,84 @@ export default function WhiteboardPage() {
       ctx.beginPath();
       ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (stroke.tool === "triangle") {
+      const midX = (stroke.startX + stroke.endX) / 2;
+      ctx.beginPath();
+      ctx.moveTo(midX, stroke.startY);
+      ctx.lineTo(stroke.startX, stroke.endY);
+      ctx.lineTo(stroke.endX, stroke.endY);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (stroke.tool === "diamond") {
+      const cx = (stroke.startX + stroke.endX) / 2;
+      const cy = (stroke.startY + stroke.endY) / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, stroke.startY);
+      ctx.lineTo(stroke.endX, cy);
+      ctx.lineTo(cx, stroke.endY);
+      ctx.lineTo(stroke.startX, cy);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (stroke.tool === "hexagon") {
+      const cx = (stroke.startX + stroke.endX) / 2;
+      const cy = (stroke.startY + stroke.endY) / 2;
+      const rx = Math.abs(stroke.endX - stroke.startX) / 2;
+      const ry = Math.abs(stroke.endY - stroke.startY) / 2;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 2;
+        const x = cx + rx * Math.cos(angle);
+        const y = cy + ry * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    } else if (stroke.tool === "star") {
+      const cx = (stroke.startX + stroke.endX) / 2;
+      const cy = (stroke.startY + stroke.endY) / 2;
+      const outerR = Math.max(Math.abs(stroke.endX - stroke.startX), Math.abs(stroke.endY - stroke.startY)) / 2;
+      const innerR = outerR * 0.4;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const angle = (Math.PI / 5) * i - Math.PI / 2;
+        const r = i % 2 === 0 ? outerR : innerR;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
     } else if (stroke.tool === "text" && stroke.text) {
       const fontSize = Math.max(stroke.strokeWidth * 5, 16);
       ctx.font = `${fontSize}px sans-serif`;
       ctx.fillStyle = stroke.color;
       ctx.textBaseline = "top";
       ctx.fillText(stroke.text, stroke.startX, stroke.startY);
+    }
+
+    // Draw selection indicator
+    if (isSelected) {
+      ctx.save();
+      ctx.strokeStyle = "#3B82F6";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 3]);
+      if (stroke.tool === "pen" || stroke.tool === "eraser") {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const [sx, sy] of stroke.points) {
+          minX = Math.min(minX, sx); minY = Math.min(minY, sy);
+          maxX = Math.max(maxX, sx); maxY = Math.max(maxY, sy);
+        }
+        ctx.strokeRect(minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8);
+      } else {
+        const minX = Math.min(stroke.startX, stroke.endX);
+        const minY = Math.min(stroke.startY, stroke.endY);
+        const maxX = Math.max(stroke.startX, stroke.endX);
+        const maxY = Math.max(stroke.startY, stroke.endY);
+        ctx.strokeRect(minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8);
+      }
+      ctx.restore();
     }
   }, []);
 
@@ -217,9 +350,9 @@ export default function WhiteboardPage() {
     if (!ctx) return;
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    localStrokes.forEach((s) => drawStroke(ctx, s));
+    localStrokes.forEach((s, i) => drawStroke(ctx, s, i === selectedStrokeIndex));
     if (currentStroke) drawStroke(ctx, currentStroke);
-  }, [localStrokes, currentStroke, drawStroke]);
+  }, [localStrokes, currentStroke, drawStroke, selectedStrokeIndex]);
 
   useEffect(() => {
     redrawCanvas();
@@ -251,6 +384,29 @@ export default function WhiteboardPage() {
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const [x, y] = getPos(e);
+
+    if (activeTool === "select") {
+      // Find topmost stroke under cursor (reverse order)
+      for (let i = localStrokes.length - 1; i >= 0; i--) {
+        if (hitTestStroke(localStrokes[i], x, y)) {
+          setSelectedStrokeIndex(i);
+          const s = localStrokes[i];
+          // Calculate offset for dragging
+          if (s.tool === "pen" || s.tool === "eraser") {
+            let minX = Infinity, minY = Infinity;
+            for (const [sx, sy] of s.points) { minX = Math.min(minX, sx); minY = Math.min(minY, sy); }
+            setDragOffset({ x: x - minX, y: y - minY });
+          } else {
+            setDragOffset({ x: x - s.startX, y: y - s.startY });
+          }
+          setIsDragging(true);
+          return;
+        }
+      }
+      setSelectedStrokeIndex(null);
+      return;
+    }
+
     if (activeTool === "text") {
       e.preventDefault();
       e.stopPropagation();
@@ -307,8 +463,34 @@ export default function WhiteboardPage() {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !currentStroke) return;
     const [x, y] = getPos(e);
+
+    // Handle dragging selected stroke
+    if (activeTool === "select" && isDragging && selectedStrokeIndex !== null && dragOffset) {
+      setLocalStrokes((prev) => {
+        const updated = [...prev];
+        const s = { ...updated[selectedStrokeIndex] };
+        if (s.tool === "pen" || s.tool === "eraser") {
+          let minX = Infinity, minY = Infinity;
+          for (const [sx, sy] of s.points) { minX = Math.min(minX, sx); minY = Math.min(minY, sy); }
+          const dx = (x - dragOffset.x) - minX;
+          const dy = (y - dragOffset.y) - minY;
+          s.points = s.points.map(([px, py]) => [px + dx, py + dy]);
+        } else {
+          const w = s.endX - s.startX;
+          const h = s.endY - s.startY;
+          s.startX = x - dragOffset.x;
+          s.startY = y - dragOffset.y;
+          s.endX = s.startX + w;
+          s.endY = s.startY + h;
+        }
+        updated[selectedStrokeIndex] = s;
+        return updated;
+      });
+      return;
+    }
+
+    if (!isDrawing || !currentStroke) return;
     if (currentStroke.tool === "pen" || currentStroke.tool === "eraser") {
       setCurrentStroke({ ...currentStroke, points: [...currentStroke.points, [x, y]] });
     } else {
@@ -317,6 +499,27 @@ export default function WhiteboardPage() {
   };
 
   const handleMouseUp = async () => {
+    // Handle select tool drop
+    if (activeTool === "select" && isDragging && selectedStrokeIndex !== null) {
+      setIsDragging(false);
+      setDragOffset(null);
+      const s = localStrokes[selectedStrokeIndex];
+      if (s.id) {
+        // Persist position update
+        const updateData: any = {
+          start_x: s.startX,
+          start_y: s.startY,
+          end_x: s.endX,
+          end_y: s.endY,
+        };
+        if (s.tool === "pen" || s.tool === "eraser") {
+          updateData.points = s.points as any;
+        }
+        await supabase.from("whiteboard_strokes").update(updateData).eq("id", s.id);
+      }
+      return;
+    }
+
     if (!isDrawing || !currentStroke || !user || !selectedBoard) {
       setIsDrawing(false);
       setCurrentStroke(null);
@@ -358,8 +561,6 @@ export default function WhiteboardPage() {
   const undoMutation = useMutation({
     mutationFn: async () => {
       if (!user || !localStrokes.length) return;
-      const myStrokes = localStrokes.filter((s) => s.id);
-      // Find last stroke by this user in DB
       const { data } = await supabase
         .from("whiteboard_strokes")
         .select("id")
@@ -430,7 +631,37 @@ export default function WhiteboardPage() {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  // Delete selected stroke
+  const deleteSelectedStroke = async () => {
+    if (selectedStrokeIndex === null) return;
+    const s = localStrokes[selectedStrokeIndex];
+    setLocalStrokes((prev) => prev.filter((_, i) => i !== selectedStrokeIndex));
+    setSelectedStrokeIndex(null);
+    if (s.id) {
+      await supabase.from("whiteboard_strokes").delete().eq("id", s.id);
+    }
+  };
+
+  // Keyboard handler for delete
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedStrokeIndex !== null && activeTool === "select" && !textInput.visible) {
+        e.preventDefault();
+        deleteSelectedStroke();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   const selectedBoardData = boards.find((b: any) => b.id === selectedBoard);
+
+  const getCursor = () => {
+    if (activeTool === "select") return "cursor-default";
+    if (activeTool === "eraser") return "cursor-cell";
+    if (activeTool === "text") return "cursor-text";
+    return "cursor-crosshair";
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -491,7 +722,7 @@ export default function WhiteboardPage() {
             <CardContent className="p-3">
               <div className="flex items-center gap-4 flex-wrap">
                 {/* Tools */}
-                <div className="flex items-center gap-1 border-r border-border pr-4">
+                <div className="flex items-center gap-1 border-r border-border pr-4 flex-wrap">
                   {(Object.keys(toolIcons) as Tool[]).map((tool) => {
                     const Icon = toolIcons[tool];
                     return (
@@ -500,7 +731,7 @@ export default function WhiteboardPage() {
                         variant={activeTool === tool ? "default" : "ghost"}
                         size="icon"
                         className="h-9 w-9"
-                        onClick={() => setActiveTool(tool)}
+                        onClick={() => { setActiveTool(tool); if (tool !== "select") setSelectedStrokeIndex(null); }}
                         title={tool.charAt(0).toUpperCase() + tool.slice(1)}
                       >
                         <Icon className="h-4 w-4" />
@@ -540,6 +771,11 @@ export default function WhiteboardPage() {
                   <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => undoMutation.mutate()} title="Undo">
                     <Undo2 className="h-4 w-4" />
                   </Button>
+                  {selectedStrokeIndex !== null && activeTool === "select" && (
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={deleteSelectedStroke} title="Delete selected">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => clearMutation.mutate()} title="Clear my strokes">
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -581,9 +817,7 @@ export default function WhiteboardPage() {
                   ) : (
                     <canvas
                       ref={canvasRef}
-                      className={`w-full h-full ${
-                        activeTool === "eraser" ? "cursor-cell" : activeTool === "text" ? "cursor-text" : "cursor-crosshair"
-                      }`}
+                      className={`w-full h-full ${getCursor()}`}
                       onMouseDown={handleMouseDown}
                       onMouseMove={handleMouseMove}
                       onMouseUp={handleMouseUp}
@@ -612,7 +846,6 @@ export default function WhiteboardPage() {
                       />
                     </div>
                   )}
-
                 </div>
               </CardContent>
             </Card>
