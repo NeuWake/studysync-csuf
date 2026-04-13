@@ -142,9 +142,10 @@ export default function WhiteboardPage() {
   });
 
   // Sync local strokes with DB strokes
+  const dbStrokesJson = JSON.stringify(dbStrokes);
   useEffect(() => {
-    setLocalStrokes(dbStrokes);
-  }, [dbStrokes]);
+    setLocalStrokes(JSON.parse(dbStrokesJson));
+  }, [dbStrokesJson]);
 
   // Realtime for strokes and notes
   useEffect(() => {
