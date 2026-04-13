@@ -357,8 +357,8 @@ export default function CalendarPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
                       <p className="text-xs text-muted-foreground">{item.time} · <span className="capitalize">{item.type.replace("_", " ")}</span></p>
-                      {item.raw?.image_url && (
-                        <img src={item.raw.image_url} alt="" className="mt-1 rounded h-12 w-20 object-cover" />
+                      {item.raw?.image_url_signed && (
+                        <img src={item.raw.image_url_signed} alt="" className="mt-1 rounded h-12 w-20 object-cover" />
                       )}
                     </div>
                     {item.eventId && (
