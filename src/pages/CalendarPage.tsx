@@ -29,8 +29,17 @@ async function uploadEventImage(userId: string, file: File): Promise<string> {
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from("event-images").upload(path, file);
   if (error) throw error;
-  const { data } = supabase.storage.from("event-images").getPublicUrl(path);
-  return data.publicUrl;
+  // Store the storage path, not a public URL (bucket is now private)
+  return path;
+}
+
+async function getSignedImageUrl(path: string): Promise<string | null> {
+  if (!path) return null;
+  // If it's already a full URL (legacy), return as-is
+  if (path.startsWith("http")) return path;
+  const { data, error } = await supabase.storage.from("event-images").createSignedUrl(path, 3600);
+  if (error) return null;
+  return data.signedUrl;
 }
 
 export default function CalendarPage() {
@@ -65,7 +74,17 @@ export default function CalendarPage() {
         .lte("start_time", end)
         .order("start_time", { ascending: true });
       if (error) throw error;
-      return data || [];
+      // Resolve signed URLs for event images
+      const resolved = await Promise.all(
+        (data || []).map(async (e: any) => {
+          if (e.image_url) {
+            const signedUrl = await getSignedImageUrl(e.image_url);
+            return { ...e, image_url_signed: signedUrl };
+          }
+          return e;
+        })
+      );
+      return resolved;
     },
     enabled: !!user,
   });
@@ -338,8 +357,8 @@ export default function CalendarPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
                       <p className="text-xs text-muted-foreground">{item.time} · <span className="capitalize">{item.type.replace("_", " ")}</span></p>
-                      {item.raw?.image_url && (
-                        <img src={item.raw.image_url} alt="" className="mt-1 rounded h-12 w-20 object-cover" />
+                      {item.raw?.image_url_signed && (
+                        <img src={item.raw.image_url_signed} alt="" className="mt-1 rounded h-12 w-20 object-cover" />
                       )}
                     </div>
                     {item.eventId && (
@@ -417,7 +436,7 @@ export default function CalendarPage() {
             startTime: toLocalDatetime(selectedEvent.start_time),
             endTime: selectedEvent.end_time ? toLocalDatetime(selectedEvent.end_time) : "",
             eventType: selectedEvent.event_type || "personal",
-            imageUrl: selectedEvent.image_url || "",
+            imageUrl: selectedEvent.image_url_signed || selectedEvent.image_url || "",
           }}
         />
       )}
