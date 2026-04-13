@@ -592,25 +592,40 @@ export default function WhiteboardPage() {
   };
 
   const handleMouseUp = async () => {
+    // Handle resize end
+    if (activeTool === "select" && resizeHandle && selectedStrokeIndex !== null) {
+      setResizeHandle(null);
+      setResizeOrigin(null);
+      const s = localStrokes[selectedStrokeIndex];
+      if (s.id) {
+        suppressRefetchRef.current = true;
+        await supabase.from("whiteboard_strokes").update({
+          start_x: s.startX, start_y: s.startY,
+          end_x: s.endX, end_y: s.endY,
+        }).eq("id", s.id);
+        setTimeout(() => {
+          suppressRefetchRef.current = false;
+          queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
+        }, 500);
+      }
+      return;
+    }
+
     // Handle select tool drop
     if (activeTool === "select" && isDragging && selectedStrokeIndex !== null) {
       setIsDragging(false);
       setDragOffset(null);
       const s = localStrokes[selectedStrokeIndex];
       if (s.id) {
-        // Suppress refetch while we persist the move
         suppressRefetchRef.current = true;
         const updateData: any = {
-          start_x: s.startX,
-          start_y: s.startY,
-          end_x: s.endX,
-          end_y: s.endY,
+          start_x: s.startX, start_y: s.startY,
+          end_x: s.endX, end_y: s.endY,
         };
         if (s.tool === "pen" || s.tool === "eraser") {
           updateData.points = s.points as any;
         }
         await supabase.from("whiteboard_strokes").update(updateData).eq("id", s.id);
-        // Allow refetch after a delay to let the realtime event pass
         setTimeout(() => {
           suppressRefetchRef.current = false;
           queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
