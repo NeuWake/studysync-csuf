@@ -257,6 +257,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(stroke.endX - headLen * Math.cos(angle + Math.PI / 6), stroke.endY - headLen * Math.sin(angle + Math.PI / 6));
       ctx.stroke();
     } else if (stroke.tool === "rectangle") {
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fillRect(stroke.startX, stroke.startY, stroke.endX - stroke.startX, stroke.endY - stroke.startY);
+      }
       ctx.beginPath();
       ctx.strokeRect(stroke.startX, stroke.startY, stroke.endX - stroke.startX, stroke.endY - stroke.startY);
     } else if (stroke.tool === "circle") {
@@ -266,6 +270,10 @@ export default function WhiteboardPage() {
       const cy = stroke.startY + (stroke.endY - stroke.startY) / 2;
       ctx.beginPath();
       ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "triangle") {
       const midX = (stroke.startX + stroke.endX) / 2;
@@ -274,6 +282,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(stroke.startX, stroke.endY);
       ctx.lineTo(stroke.endX, stroke.endY);
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "diamond") {
       const cx = (stroke.startX + stroke.endX) / 2;
@@ -284,6 +296,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(cx, stroke.endY);
       ctx.lineTo(stroke.startX, cy);
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "hexagon") {
       const cx = (stroke.startX + stroke.endX) / 2;
@@ -299,6 +315,10 @@ export default function WhiteboardPage() {
         else ctx.lineTo(x, y);
       }
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "star") {
       const cx = (stroke.startX + stroke.endX) / 2;
@@ -315,6 +335,10 @@ export default function WhiteboardPage() {
         else ctx.lineTo(x, y);
       }
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "text" && stroke.text) {
       const fontSize = Math.max(stroke.strokeWidth * 5, 16);
