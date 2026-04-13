@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2 } from "lucide-react";
+import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-type Tool = "pen" | "rectangle" | "circle" | "line" | "eraser";
+type Tool = "pen" | "rectangle" | "circle" | "line" | "eraser" | "text";
 
 interface Stroke {
   id?: string;
@@ -26,6 +26,7 @@ interface Stroke {
   startY: number;
   endX: number;
   endY: number;
+  text?: string;
 }
 
 const toolIcons: Record<Tool, React.ElementType> = {
@@ -34,6 +35,7 @@ const toolIcons: Record<Tool, React.ElementType> = {
   circle: Circle,
   line: Minus,
   eraser: Eraser,
+  text: Type,
 };
 
 const colors = ["#000000", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#FFFFFF"];
@@ -67,6 +69,11 @@ export default function WhiteboardPage() {
   // Sticky notes
   const [showNotes, setShowNotes] = useState(false);
   const [newNote, setNewNote] = useState("");
+
+  // Text tool state
+  const [textInput, setTextInput] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: false });
+  const [textValue, setTextValue] = useState("");
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,6 +120,7 @@ export default function WhiteboardPage() {
         startY: Number(s.start_y) || 0,
         endX: Number(s.end_x) || 0,
         endY: Number(s.end_y) || 0,
+        text: s.tool === "text" ? (Array.isArray(s.points) && typeof s.points[0] === "string" ? s.points[0] : "") : undefined,
       }));
     },
     enabled: !!selectedBoard,
@@ -193,6 +201,12 @@ export default function WhiteboardPage() {
       ctx.beginPath();
       ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (stroke.tool === "text" && stroke.text) {
+      const fontSize = Math.max(stroke.strokeWidth * 5, 16);
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.fillStyle = stroke.color;
+      ctx.textBaseline = "top";
+      ctx.fillText(stroke.text, stroke.startX, stroke.startY);
     }
   }, []);
 
@@ -235,12 +249,53 @@ export default function WhiteboardPage() {
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const [x, y] = getPos(e);
+    if (activeTool === "text") {
+      setTextInput({ x, y, visible: true });
+      setTextValue("");
+      setTimeout(() => textInputRef.current?.focus(), 50);
+      return;
+    }
     setIsDrawing(true);
     if (activeTool === "pen" || activeTool === "eraser") {
       setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
     } else {
       setCurrentStroke({ tool: activeTool, points: [], color: activeColor, strokeWidth, startX: x, startY: y, endX: x, endY: y });
     }
+  };
+
+  const commitText = async () => {
+    if (!textValue.trim() || !user || !selectedBoard) {
+      setTextInput({ x: 0, y: 0, visible: false });
+      setTextValue("");
+      return;
+    }
+    const textStroke: Stroke = {
+      tool: "text",
+      points: [],
+      color: activeColor,
+      strokeWidth,
+      startX: textInput.x,
+      startY: textInput.y,
+      endX: 0,
+      endY: 0,
+      text: textValue.trim(),
+    };
+    setLocalStrokes((prev) => [...prev, textStroke]);
+    setTextInput({ x: 0, y: 0, visible: false });
+    setTextValue("");
+
+    await supabase.from("whiteboard_strokes").insert({
+      whiteboard_id: selectedBoard,
+      user_id: user.id,
+      tool: "text",
+      points: [textValue.trim()] as any,
+      color: activeColor,
+      stroke_width: strokeWidth,
+      start_x: textInput.x,
+      start_y: textInput.y,
+      end_x: 0,
+      end_y: 0,
+    });
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -519,7 +574,7 @@ export default function WhiteboardPage() {
                     <canvas
                       ref={canvasRef}
                       className={`w-full h-full ${
-                        activeTool === "eraser" ? "cursor-cell" : "cursor-crosshair"
+                        activeTool === "eraser" ? "cursor-cell" : activeTool === "text" ? "cursor-text" : "cursor-crosshair"
                       }`}
                       onMouseDown={handleMouseDown}
                       onMouseMove={handleMouseMove}
@@ -527,6 +582,29 @@ export default function WhiteboardPage() {
                       onMouseLeave={handleMouseUp}
                     />
                   )}
+                  {textInput.visible && (
+                    <div
+                      className="absolute z-10"
+                      style={{ left: textInput.x, top: textInput.y }}
+                    >
+                      <input
+                        ref={textInputRef}
+                        type="text"
+                        value={textValue}
+                        onChange={(e) => setTextValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitText();
+                          if (e.key === "Escape") { setTextInput({ x: 0, y: 0, visible: false }); setTextValue(""); }
+                        }}
+                        onBlur={commitText}
+                        className="bg-transparent border-b-2 border-primary outline-none text-black px-1"
+                        style={{ fontSize: `${Math.max(strokeWidth * 5, 16)}px`, color: activeColor, minWidth: "100px" }}
+                        placeholder="Type here..."
+                        autoFocus
+                      />
+                    </div>
+                  )}
+
                 </div>
               </CardContent>
             </Card>
