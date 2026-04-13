@@ -91,6 +91,19 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
+function getResizeHandle(stroke: Stroke, px: number, py: number, padding = 4, handleRadius = 8): string | null {
+  if (stroke.tool === "pen" || stroke.tool === "eraser" || stroke.tool === "text") return null;
+  const minX = Math.min(stroke.startX, stroke.endX) - padding;
+  const maxX = Math.max(stroke.startX, stroke.endX) + padding;
+  const minY = Math.min(stroke.startY, stroke.endY) - padding;
+  const maxY = Math.max(stroke.startY, stroke.endY) + padding;
+  if (Math.hypot(px - minX, py - minY) < handleRadius) return "tl";
+  if (Math.hypot(px - maxX, py - minY) < handleRadius) return "tr";
+  if (Math.hypot(px - minX, py - maxY) < handleRadius) return "bl";
+  if (Math.hypot(px - maxX, py - maxY) < handleRadius) return "br";
+  return null;
+}
+
 export default function WhiteboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
