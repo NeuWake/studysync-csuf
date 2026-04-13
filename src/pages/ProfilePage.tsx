@@ -24,7 +24,7 @@ export default function ProfilePage() {
     gradYear: "",
     studyInterests: "",
     canvasToken: "",
-    canvasBaseUrl: "https://msmary.instructure.com",
+    canvasBaseUrl: "https://csufullerton.instructure.com",
     helpPoints: 0,
     studyStreaks: 0,
   });
