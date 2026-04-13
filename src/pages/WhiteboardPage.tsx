@@ -770,14 +770,34 @@ export default function WhiteboardPage() {
                   })}
                 </div>
 
-                {/* Colors */}
+                {/* Stroke Colors */}
                 <div className="flex items-center gap-1 border-r border-border pr-4">
+                  <span className="text-xs text-muted-foreground mr-1">Stroke</span>
                   {colors.map((c) => (
                     <button
                       key={c}
-                      className={`h-7 w-7 rounded-full border-2 transition-transform ${activeColor === c ? "border-primary scale-110" : "border-border"}`}
+                      className={`h-6 w-6 rounded-full border-2 transition-transform ${activeColor === c ? "border-primary scale-110" : "border-border"}`}
                       style={{ backgroundColor: c }}
                       onClick={() => setActiveColor(c)}
+                    />
+                  ))}
+                </div>
+
+                {/* Fill Colors */}
+                <div className="flex items-center gap-1 border-r border-border pr-4">
+                  <PaintBucket className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                  <span className="text-xs text-muted-foreground mr-1">Fill</span>
+                  {fillColors.map((c) => (
+                    <button
+                      key={c}
+                      className={`h-6 w-6 rounded border-2 transition-transform ${activeFillColor === c ? "border-primary scale-110" : "border-border"} ${c === "transparent" ? "bg-white" : ""}`}
+                      style={c !== "transparent" ? { backgroundColor: c } : {
+                        backgroundImage: "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                        backgroundSize: "8px 8px",
+                        backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px"
+                      }}
+                      onClick={() => setActiveFillColor(c)}
+                      title={c === "transparent" ? "No fill" : c}
                     />
                   ))}
                 </div>
