@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,8 +30,9 @@ export default function AssignmentsPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCourse, setFilterCourse] = useState<string>("all");
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
 
-  // Fetch user's assignments with course info
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["user-assignments", user?.id],
     queryFn: async () => {
@@ -43,31 +47,24 @@ export default function AssignmentsPage() {
         `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-
       if (error) throw error;
       return data || [];
     },
     enabled: !!user,
   });
 
-  // Canvas sync mutation
   const syncMutation = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
-
       const { data, error } = await supabase.functions.invoke("canvas-sync", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
-      toast({
-        title: "Canvas sync complete!",
-        description: `Synced ${data.synced_courses} courses, ${data.synced_assignments} assignments.${data.errors ? ` (${data.errors.length} warnings)` : ""}`,
-      });
+      toast({ title: "Canvas sync complete!", description: `Synced ${data.synced_courses} courses, ${data.synced_assignments} assignments.` });
       queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
     },
     onError: (err: any) => {
@@ -75,14 +72,51 @@ export default function AssignmentsPage() {
     },
   });
 
-  // Get unique courses for filter
+  const createTaskMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not authenticated");
+      // Create the assignment
+      const { data: assignment, error: aErr } = await supabase
+        .from("assignments")
+        .insert({
+          title: newTask.title,
+          description: newTask.description || null,
+          due_date: newTask.due_date ? new Date(newTask.due_date).toISOString() : null,
+          assignment_type: newTask.assignment_type as any,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+      if (aErr) throw aErr;
+
+      // Link to user
+      const { error: uaErr } = await supabase
+        .from("user_assignments")
+        .insert({
+          user_id: user.id,
+          assignment_id: assignment.id,
+          status: "pending",
+          progress: 0,
+        });
+      if (uaErr) throw uaErr;
+      return assignment;
+    },
+    onSuccess: () => {
+      toast({ title: "Task created!" });
+      setShowNewTask(false);
+      setNewTask({ title: "", description: "", due_date: "", assignment_type: "homework" });
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to create task", description: err.message, variant: "destructive" });
+    },
+  });
+
   const courses = [...new Set(
-    assignments
-      .map((a: any) => a.assignment?.course?.name)
-      .filter(Boolean)
+    assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean)
   )];
 
-  // Filter
   const filtered = assignments.filter((a: any) => {
     const assign = a.assignment;
     if (!assign) return false;
@@ -100,16 +134,11 @@ export default function AssignmentsPage() {
           <p className="text-muted-foreground mt-1">Track and manage all your coursework</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
-          >
+          <Button variant="outline" className="gap-2" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
             {syncMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Sync Canvas
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setShowNewTask(true)}>
             <Plus className="h-4 w-4" /> New Task
           </Button>
         </div>
@@ -195,6 +224,47 @@ export default function AssignmentsPage() {
           })}
         </div>
       )}
+
+      {/* New Task Dialog */}
+      <Dialog open={showNewTask} onOpenChange={setShowNewTask}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="task-title">Title</Label>
+              <Input id="task-title" placeholder="e.g. Chapter 5 Reading" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="task-desc">Description (optional)</Label>
+              <Textarea id="task-desc" placeholder="Details about this task..." value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="task-due">Due Date</Label>
+              <Input id="task-due" type="datetime-local" value={newTask.due_date} onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })} />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <Select value={newTask.assignment_type} onValueChange={(v) => setNewTask({ ...newTask, assignment_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["homework", "quiz", "project", "essay", "lab", "exam", "other"].map((t) => (
+                    <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewTask(false)}>Cancel</Button>
+            <Button onClick={() => createTaskMutation.mutate()} disabled={!newTask.title || createTaskMutation.isPending}>
+              {createTaskMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
