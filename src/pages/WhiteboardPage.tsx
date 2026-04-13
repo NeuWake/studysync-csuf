@@ -249,12 +249,53 @@ export default function WhiteboardPage() {
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const [x, y] = getPos(e);
+    if (activeTool === "text") {
+      setTextInput({ x, y, visible: true });
+      setTextValue("");
+      setTimeout(() => textInputRef.current?.focus(), 50);
+      return;
+    }
     setIsDrawing(true);
     if (activeTool === "pen" || activeTool === "eraser") {
       setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
     } else {
       setCurrentStroke({ tool: activeTool, points: [], color: activeColor, strokeWidth, startX: x, startY: y, endX: x, endY: y });
     }
+  };
+
+  const commitText = async () => {
+    if (!textValue.trim() || !user || !selectedBoard) {
+      setTextInput({ x: 0, y: 0, visible: false });
+      setTextValue("");
+      return;
+    }
+    const textStroke: Stroke = {
+      tool: "text",
+      points: [],
+      color: activeColor,
+      strokeWidth,
+      startX: textInput.x,
+      startY: textInput.y,
+      endX: 0,
+      endY: 0,
+      text: textValue.trim(),
+    };
+    setLocalStrokes((prev) => [...prev, textStroke]);
+    setTextInput({ x: 0, y: 0, visible: false });
+    setTextValue("");
+
+    await supabase.from("whiteboard_strokes").insert({
+      whiteboard_id: selectedBoard,
+      user_id: user.id,
+      tool: "text",
+      points: [textValue.trim()] as any,
+      color: activeColor,
+      stroke_width: strokeWidth,
+      start_x: textInput.x,
+      start_y: textInput.y,
+      end_x: 0,
+      end_y: 0,
+    });
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
