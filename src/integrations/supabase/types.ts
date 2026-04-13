@@ -411,6 +411,7 @@ export type Database = {
           end_time: string | null
           event_type: Database["public"]["Enums"]["event_type"] | null
           id: string
+          image_url: string | null
           is_canvas_synced: boolean | null
           is_recurring: boolean | null
           recurrence_rule: string | null
@@ -427,6 +428,7 @@ export type Database = {
           end_time?: string | null
           event_type?: Database["public"]["Enums"]["event_type"] | null
           id?: string
+          image_url?: string | null
           is_canvas_synced?: boolean | null
           is_recurring?: boolean | null
           recurrence_rule?: string | null
@@ -443,6 +445,7 @@ export type Database = {
           end_time?: string | null
           event_type?: Database["public"]["Enums"]["event_type"] | null
           id?: string
+          image_url?: string | null
           is_canvas_synced?: boolean | null
           is_recurring?: boolean | null
           recurrence_rule?: string | null
