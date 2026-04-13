@@ -593,6 +593,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_whiteboard_member: {
+        Args: { _user_id: string; _whiteboard_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
