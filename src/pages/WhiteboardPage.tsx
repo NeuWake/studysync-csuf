@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon } from "lucide-react";
+import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,7 @@ interface Stroke {
   tool: Tool;
   points: number[][];
   color: string;
+  fillColor?: string | null;
   strokeWidth: number;
   startX: number;
   startY: number;
@@ -43,6 +44,8 @@ const toolIcons: Record<Tool, React.ElementType> = {
   eraser: Eraser,
   text: Type,
 };
+
+const fillColors = ["transparent", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#FFFFFF", "#000000"];
 
 const colors = ["#000000", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#FFFFFF"];
 
@@ -100,6 +103,7 @@ export default function WhiteboardPage() {
   // Drawing state
   const [activeTool, setActiveTool] = useState<Tool>("pen");
   const [activeColor, setActiveColor] = useState("#000000");
+  const [activeFillColor, setActiveFillColor] = useState<string>("transparent");
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
@@ -159,6 +163,7 @@ export default function WhiteboardPage() {
         tool: s.tool as Tool,
         points: (s.points as number[][]) || [],
         color: s.color || "#000000",
+        fillColor: s.fill_color || null,
         strokeWidth: s.stroke_width || 2,
         startX: Number(s.start_x) || 0,
         startY: Number(s.start_y) || 0,
@@ -252,6 +257,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(stroke.endX - headLen * Math.cos(angle + Math.PI / 6), stroke.endY - headLen * Math.sin(angle + Math.PI / 6));
       ctx.stroke();
     } else if (stroke.tool === "rectangle") {
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fillRect(stroke.startX, stroke.startY, stroke.endX - stroke.startX, stroke.endY - stroke.startY);
+      }
       ctx.beginPath();
       ctx.strokeRect(stroke.startX, stroke.startY, stroke.endX - stroke.startX, stroke.endY - stroke.startY);
     } else if (stroke.tool === "circle") {
@@ -261,6 +270,10 @@ export default function WhiteboardPage() {
       const cy = stroke.startY + (stroke.endY - stroke.startY) / 2;
       ctx.beginPath();
       ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "triangle") {
       const midX = (stroke.startX + stroke.endX) / 2;
@@ -269,6 +282,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(stroke.startX, stroke.endY);
       ctx.lineTo(stroke.endX, stroke.endY);
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "diamond") {
       const cx = (stroke.startX + stroke.endX) / 2;
@@ -279,6 +296,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(cx, stroke.endY);
       ctx.lineTo(stroke.startX, cy);
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "hexagon") {
       const cx = (stroke.startX + stroke.endX) / 2;
@@ -294,6 +315,10 @@ export default function WhiteboardPage() {
         else ctx.lineTo(x, y);
       }
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "star") {
       const cx = (stroke.startX + stroke.endX) / 2;
@@ -310,6 +335,10 @@ export default function WhiteboardPage() {
         else ctx.lineTo(x, y);
       }
       ctx.closePath();
+      if (stroke.fillColor && stroke.fillColor !== "transparent") {
+        ctx.fillStyle = stroke.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (stroke.tool === "text" && stroke.text) {
       const fontSize = Math.max(stroke.strokeWidth * 5, 16);
@@ -421,9 +450,9 @@ export default function WhiteboardPage() {
     }
     setIsDrawing(true);
     if (activeTool === "pen" || activeTool === "eraser") {
-      setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
+      setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, fillColor: null, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
     } else {
-      setCurrentStroke({ tool: activeTool, points: [], color: activeColor, strokeWidth, startX: x, startY: y, endX: x, endY: y });
+      setCurrentStroke({ tool: activeTool, points: [], color: activeColor, fillColor: activeFillColor === "transparent" ? null : activeFillColor, strokeWidth, startX: x, startY: y, endX: x, endY: y });
     }
   };
 
@@ -538,12 +567,13 @@ export default function WhiteboardPage() {
       tool: finished.tool,
       points: finished.points as any,
       color: finished.color,
+      fill_color: finished.fillColor || null,
       stroke_width: finished.strokeWidth,
       start_x: finished.startX,
       start_y: finished.startY,
       end_x: finished.endX,
       end_y: finished.endY,
-    });
+    } as any);
   };
 
   // Clear board (delete all user's strokes)
@@ -740,14 +770,34 @@ export default function WhiteboardPage() {
                   })}
                 </div>
 
-                {/* Colors */}
+                {/* Stroke Colors */}
                 <div className="flex items-center gap-1 border-r border-border pr-4">
+                  <span className="text-xs text-muted-foreground mr-1">Stroke</span>
                   {colors.map((c) => (
                     <button
                       key={c}
-                      className={`h-7 w-7 rounded-full border-2 transition-transform ${activeColor === c ? "border-primary scale-110" : "border-border"}`}
+                      className={`h-6 w-6 rounded-full border-2 transition-transform ${activeColor === c ? "border-primary scale-110" : "border-border"}`}
                       style={{ backgroundColor: c }}
                       onClick={() => setActiveColor(c)}
+                    />
+                  ))}
+                </div>
+
+                {/* Fill Colors */}
+                <div className="flex items-center gap-1 border-r border-border pr-4">
+                  <PaintBucket className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                  <span className="text-xs text-muted-foreground mr-1">Fill</span>
+                  {fillColors.map((c) => (
+                    <button
+                      key={c}
+                      className={`h-6 w-6 rounded border-2 transition-transform ${activeFillColor === c ? "border-primary scale-110" : "border-border"} ${c === "transparent" ? "bg-white" : ""}`}
+                      style={c !== "transparent" ? { backgroundColor: c } : {
+                        backgroundImage: "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                        backgroundSize: "8px 8px",
+                        backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px"
+                      }}
+                      onClick={() => setActiveFillColor(c)}
+                      title={c === "transparent" ? "No fill" : c}
                     />
                   ))}
                 </div>

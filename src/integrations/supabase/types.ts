@@ -582,6 +582,7 @@ export type Database = {
           created_at: string
           end_x: number | null
           end_y: number | null
+          fill_color: string | null
           id: string
           points: Json | null
           start_x: number | null
@@ -596,6 +597,7 @@ export type Database = {
           created_at?: string
           end_x?: number | null
           end_y?: number | null
+          fill_color?: string | null
           id?: string
           points?: Json | null
           start_x?: number | null
@@ -610,6 +612,7 @@ export type Database = {
           created_at?: string
           end_x?: number | null
           end_y?: number | null
+          fill_color?: string | null
           id?: string
           points?: Json | null
           start_x?: number | null

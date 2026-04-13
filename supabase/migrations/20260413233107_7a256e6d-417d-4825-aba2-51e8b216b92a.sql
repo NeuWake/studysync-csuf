@@ -1,0 +1,1 @@
+ALTER TABLE public.whiteboard_strokes ADD COLUMN fill_color TEXT DEFAULT NULL;
