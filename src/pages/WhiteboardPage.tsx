@@ -536,7 +536,8 @@ export default function WhiteboardPage() {
       setDragOffset(null);
       const s = localStrokes[selectedStrokeIndex];
       if (s.id) {
-        // Persist position update
+        // Suppress refetch while we persist the move
+        suppressRefetchRef.current = true;
         const updateData: any = {
           start_x: s.startX,
           start_y: s.startY,
@@ -547,6 +548,11 @@ export default function WhiteboardPage() {
           updateData.points = s.points as any;
         }
         await supabase.from("whiteboard_strokes").update(updateData).eq("id", s.id);
+        // Allow refetch after a delay to let the realtime event pass
+        setTimeout(() => {
+          suppressRefetchRef.current = false;
+          queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
+        }, 500);
       }
       return;
     }
