@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ALTER COLUMN canvas_base_url SET DEFAULT 'https://csufullerton.instructure.com';
