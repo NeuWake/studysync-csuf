@@ -1,19 +1,20 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Plus, Users, Hash, Search, Loader2, MessageSquare } from "lucide-react";
+import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import UserSearchSelect from "@/components/chat/UserSearchSelect";
+import ChatMembersDialog from "@/components/chat/ChatMembersDialog";
 
 interface Message {
   id: string;
@@ -22,6 +23,12 @@ interface Message {
   content: string;
   sent_at: string;
   profile?: { full_name: string | null } | null;
+}
+
+interface UserResult {
+  user_id: string;
+  full_name: string | null;
+  university: string | null;
 }
 
 export default function ChatPage() {
@@ -34,10 +41,12 @@ export default function ChatPage() {
   const [newChatName, setNewChatName] = useState("");
   const [newChatType, setNewChatType] = useState<"dm" | "group">("group");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [inviteUsers, setInviteUsers] = useState<UserResult[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Fetch chatrooms the user is a member of
+  // Fetch chatrooms
   const { data: rooms = [], isLoading: roomsLoading } = useQuery({
     queryKey: ["chatrooms", user?.id],
     queryFn: async () => {
@@ -48,7 +57,6 @@ export default function ChatPage() {
         .eq("user_id", user.id);
       if (error) throw error;
       if (!memberships?.length) return [];
-
       const ids = memberships.map((m) => m.chatroom_id);
       const { data: chatrooms, error: crErr } = await supabase
         .from("chatrooms")
@@ -61,7 +69,7 @@ export default function ChatPage() {
     enabled: !!user,
   });
 
-  // Fetch messages for selected room
+  // Fetch messages
   const { data: messages = [], isLoading: msgsLoading } = useQuery({
     queryKey: ["messages", selectedRoom],
     queryFn: async () => {
@@ -73,69 +81,45 @@ export default function ChatPage() {
         .order("sent_at", { ascending: true })
         .limit(200);
       if (error) throw error;
-
-      // Fetch profiles for message authors
       const userIds = [...new Set((data || []).map((m) => m.user_id))];
       if (!userIds.length) return data || [];
-
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name")
         .in("user_id", userIds);
-
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
-      return (data || []).map((m) => ({
-        ...m,
-        profile: profileMap.get(m.user_id) || null,
-      }));
+      return (data || []).map((m) => ({ ...m, profile: profileMap.get(m.user_id) || null }));
     },
     enabled: !!selectedRoom,
   });
 
-  // Realtime subscription for messages
+  // Realtime
   useEffect(() => {
     if (!selectedRoom) return;
-
     channelRef.current = supabase
       .channel(`messages:${selectedRoom}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `chatroom_id=eq.${selectedRoom}`,
-        },
-        async (payload) => {
-          const newMsg = payload.new as Message;
-          // Fetch profile for the new message author
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("user_id, full_name")
-            .eq("user_id", newMsg.user_id)
-            .maybeSingle();
-          newMsg.profile = profile;
-
-          queryClient.setQueryData<Message[]>(["messages", selectedRoom], (old) => {
-            if (!old) return [newMsg];
-            // Avoid duplicates
-            if (old.some((m) => m.id === newMsg.id)) return old;
-            return [...old, newMsg];
-          });
-        }
-      )
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "messages",
+        filter: `chatroom_id=eq.${selectedRoom}`,
+      }, async (payload) => {
+        const newMsg = payload.new as Message;
+        const { data: profile } = await supabase
+          .from("profiles").select("user_id, full_name")
+          .eq("user_id", newMsg.user_id).maybeSingle();
+        newMsg.profile = profile;
+        queryClient.setQueryData<Message[]>(["messages", selectedRoom], (old) => {
+          if (!old) return [newMsg];
+          if (old.some((m) => m.id === newMsg.id)) return old;
+          return [...old, newMsg];
+        });
+      })
       .subscribe();
-
-    return () => {
-      channelRef.current?.unsubscribe();
-    };
+    return () => { channelRef.current?.unsubscribe(); };
   }, [selectedRoom, queryClient]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
   // Send message
@@ -143,9 +127,7 @@ export default function ChatPage() {
     mutationFn: async (content: string) => {
       if (!user || !selectedRoom) throw new Error("Not ready");
       const { error } = await supabase.from("messages").insert({
-        chatroom_id: selectedRoom,
-        user_id: user.id,
-        content,
+        chatroom_id: selectedRoom, user_id: user.id, content,
       });
       if (error) throw error;
     },
@@ -161,34 +143,36 @@ export default function ChatPage() {
     sendMutation.mutate(text);
   };
 
-  // Create chatroom
+  // Create chatroom with invited users
   const createRoomMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !newChatName.trim()) throw new Error("Missing data");
-      // Create chatroom
+      if (!user) throw new Error("Not authenticated");
+      const name = newChatType === "dm" && inviteUsers.length === 1
+        ? inviteUsers[0].full_name || "Direct Message"
+        : newChatName.trim();
+      if (!name) throw new Error("Please provide a chat name");
+
       const { data: room, error } = await supabase
         .from("chatrooms")
-        .insert({
-          name: newChatName.trim(),
-          type: newChatType,
-          created_by: user.id,
-        })
+        .insert({ name, type: newChatType, created_by: user.id })
         .select("id")
         .single();
       if (error) throw error;
 
-      // Add creator as member
-      const { error: memErr } = await supabase
-        .from("chatroom_members")
-        .insert({ chatroom_id: room.id, user_id: user.id });
+      // Add creator + invited users as members
+      const memberInserts = [
+        { chatroom_id: room.id, user_id: user.id },
+        ...inviteUsers.map((u) => ({ chatroom_id: room.id, user_id: u.user_id })),
+      ];
+      const { error: memErr } = await supabase.from("chatroom_members").insert(memberInserts);
       if (memErr) throw memErr;
-
       return room;
     },
     onSuccess: (room) => {
       queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
       setSelectedRoom(room.id);
       setNewChatName("");
+      setInviteUsers([]);
       setDialogOpen(false);
       toast({ title: "Chat created!" });
     },
@@ -202,10 +186,9 @@ export default function ChatPage() {
     !searchQuery || r.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
+  const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const canCreate = newChatType === "dm" ? inviteUsers.length === 1 : !!newChatName.trim();
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-4 animate-fade-in">
@@ -214,21 +197,13 @@ export default function ChatPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Messages</CardTitle>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setInviteUsers([]); setNewChatName(""); } }}>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>New Chat</DialogTitle></DialogHeader>
                 <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Chat Name</Label>
-                    <Input
-                      placeholder="e.g. CS 301 Study Group"
-                      value={newChatName}
-                      onChange={(e) => setNewChatName(e.target.value)}
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label>Type</Label>
                     <Select value={newChatType} onValueChange={(v) => setNewChatType(v as any)}>
@@ -239,13 +214,33 @@ export default function ChatPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {newChatType === "group" && (
+                    <div className="space-y-2">
+                      <Label>Chat Name</Label>
+                      <Input placeholder="e.g. CS 301 Study Group" value={newChatName} onChange={(e) => setNewChatName(e.target.value)} />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>{newChatType === "dm" ? "Select User" : "Invite Users (optional)"}</Label>
+                    <UserSearchSelect
+                      selectedUsers={inviteUsers}
+                      onSelect={(u) => {
+                        if (newChatType === "dm") {
+                          setInviteUsers([u]);
+                        } else {
+                          setInviteUsers((prev) => [...prev, u]);
+                        }
+                      }}
+                      onRemove={(id) => setInviteUsers((prev) => prev.filter((u) => u.user_id !== id))}
+                    />
+                  </div>
                   <Button
                     className="w-full"
                     onClick={() => createRoomMutation.mutate()}
-                    disabled={createRoomMutation.isPending || !newChatName.trim()}
+                    disabled={createRoomMutation.isPending || !canCreate}
                   >
-                    {createRoomMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Create Chat
+                    {createRoomMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {newChatType === "dm" ? "Start Conversation" : "Create Group"}
                   </Button>
                 </div>
               </DialogContent>
@@ -306,10 +301,13 @@ export default function ChatPage() {
                     {selectedRoomData?.type === "dm" ? (selectedRoomData?.name?.[0] || "?") : <Users className="h-4 w-4" />}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-1">
                   <p className="font-medium text-sm text-foreground">{selectedRoomData?.name || "Chat"}</p>
                   <p className="text-xs text-muted-foreground capitalize">{selectedRoomData?.type?.replace("_", " ")}</p>
                 </div>
+                <Button variant="ghost" size="icon" onClick={() => setMembersOpen(true)}>
+                  <UserPlus className="h-4 w-4" />
+                </Button>
               </div>
             </CardHeader>
             <div className="flex-1 overflow-auto p-4" ref={scrollRef}>
@@ -352,10 +350,7 @@ export default function ChatPage() {
                   onChange={(e) => setMessage(e.target.value)}
                   className="flex-1"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
                   }}
                 />
                 <Button size="icon" onClick={handleSend} disabled={!message.trim() || sendMutation.isPending}>
@@ -363,6 +358,15 @@ export default function ChatPage() {
                 </Button>
               </div>
             </div>
+
+            {selectedRoomData && (
+              <ChatMembersDialog
+                open={membersOpen}
+                onOpenChange={setMembersOpen}
+                chatroomId={selectedRoom}
+                createdBy={selectedRoomData.created_by}
+              />
+            )}
           </>
         )}
       </Card>
