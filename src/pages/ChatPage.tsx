@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus } from "lucide-react";
+import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,8 @@ interface UserResult {
   university: string | null;
 }
 
+const MESSAGES_PER_PAGE = 15;
+
 export default function ChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -43,8 +45,17 @@ export default function ChatPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [inviteUsers, setInviteUsers] = useState<UserResult[]>([]);
+  const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
+  const [hasMore, setHasMore] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const shouldScrollRef = useRef(true);
+
+  // Reset limit when switching rooms
+  useEffect(() => {
+    setMessageLimit(MESSAGES_PER_PAGE);
+    shouldScrollRef.current = true;
+  }, [selectedRoom]);
 
   // Fetch chatrooms
   const { data: rooms = [], isLoading: roomsLoading } = useQuery({
@@ -69,26 +80,35 @@ export default function ChatPage() {
     enabled: !!user,
   });
 
-  // Fetch messages
+  // Fetch messages with limit
   const { data: messages = [], isLoading: msgsLoading } = useQuery({
-    queryKey: ["messages", selectedRoom],
+    queryKey: ["messages", selectedRoom, messageLimit],
     queryFn: async () => {
       if (!selectedRoom) return [];
+      // Fetch one extra to check if there are more
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("chatroom_id", selectedRoom)
-        .order("sent_at", { ascending: true })
-        .limit(200);
+        .order("sent_at", { ascending: false })
+        .limit(messageLimit + 1);
       if (error) throw error;
-      const userIds = [...new Set((data || []).map((m) => m.user_id))];
-      if (!userIds.length) return data || [];
+
+      const hasMoreMessages = (data || []).length > messageLimit;
+      setHasMore(hasMoreMessages);
+
+      const sliced = hasMoreMessages ? (data || []).slice(0, messageLimit) : (data || []);
+      // Reverse to chronological order
+      const chronological = sliced.reverse();
+
+      const userIds = [...new Set(chronological.map((m) => m.user_id))];
+      if (!userIds.length) return chronological;
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name")
         .in("user_id", userIds);
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
-      return (data || []).map((m) => ({ ...m, profile: profileMap.get(m.user_id) || null }));
+      return chronological.map((m) => ({ ...m, profile: profileMap.get(m.user_id) || null }));
     },
     enabled: !!selectedRoom,
   });
@@ -107,7 +127,8 @@ export default function ChatPage() {
           .from("profiles").select("user_id, full_name")
           .eq("user_id", newMsg.user_id).maybeSingle();
         newMsg.profile = profile;
-        queryClient.setQueryData<Message[]>(["messages", selectedRoom], (old) => {
+        shouldScrollRef.current = true;
+        queryClient.setQueryData<Message[]>(["messages", selectedRoom, messageLimit], (old) => {
           if (!old) return [newMsg];
           if (old.some((m) => m.id === newMsg.id)) return old;
           return [...old, newMsg];
@@ -115,12 +136,19 @@ export default function ChatPage() {
       })
       .subscribe();
     return () => { channelRef.current?.unsubscribe(); };
-  }, [selectedRoom, queryClient]);
+  }, [selectedRoom, queryClient, messageLimit]);
 
-  // Auto-scroll
+  // Auto-scroll only when new messages arrive (not when loading older)
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (shouldScrollRef.current && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
+
+  const loadMore = useCallback(() => {
+    shouldScrollRef.current = false;
+    setMessageLimit((prev) => prev + MESSAGES_PER_PAGE);
+  }, []);
 
   // Send message
   const sendMutation = useMutation({
@@ -140,6 +168,7 @@ export default function ChatPage() {
     const text = message.trim();
     if (!text) return;
     setMessage("");
+    shouldScrollRef.current = true;
     sendMutation.mutate(text);
   };
 
@@ -313,33 +342,45 @@ export default function ChatPage() {
             <div className="flex-1 overflow-auto p-4" ref={scrollRef}>
               {msgsLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-              ) : messages.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No messages yet. Say hello!</p>
               ) : (
-                <div className="space-y-4">
-                  {messages.map((msg: Message) => {
-                    const isMe = msg.user_id === user?.id;
-                    return (
-                      <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[70%] p-3 rounded-xl ${
-                          isMe
-                            ? "bg-primary text-primary-foreground rounded-br-sm"
-                            : "bg-muted text-foreground rounded-bl-sm"
-                        }`}>
-                          {!isMe && (
-                            <p className="text-xs font-medium mb-1 opacity-70">
-                              {msg.profile?.full_name || "Unknown"}
-                            </p>
-                          )}
-                          <p className="text-sm">{msg.content}</p>
-                          <p className={`text-[10px] mt-1 ${isMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                            {formatTime(msg.sent_at)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <>
+                  {hasMore && (
+                    <div className="flex justify-center mb-4">
+                      <Button variant="ghost" size="sm" onClick={loadMore} className="text-xs gap-1">
+                        <ChevronUp className="h-3 w-3" />
+                        Load older messages
+                      </Button>
+                    </div>
+                  )}
+                  {messages.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No messages yet. Say hello!</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {messages.map((msg: Message) => {
+                        const isMe = msg.user_id === user?.id;
+                        return (
+                          <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                            <div className={`max-w-[70%] p-3 rounded-xl ${
+                              isMe
+                                ? "bg-primary text-primary-foreground rounded-br-sm"
+                                : "bg-muted text-foreground rounded-bl-sm"
+                            }`}>
+                              {!isMe && (
+                                <p className="text-xs font-medium mb-1 opacity-70">
+                                  {msg.profile?.full_name || "Unknown"}
+                                </p>
+                              )}
+                              <p className="text-sm">{msg.content}</p>
+                              <p className={`text-[10px] mt-1 ${isMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                {formatTime(msg.sent_at)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className="p-4 border-t border-border">
