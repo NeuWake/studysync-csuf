@@ -20,7 +20,7 @@ export default function ProfilePage() {
   const [validating, setValidating] = useState(false);
   const [profile, setProfile] = useState({
     fullName: "",
-    university: "",
+    university: "California State University, Fullerton",
     major: "",
     gradYear: "",
     studyInterests: "",

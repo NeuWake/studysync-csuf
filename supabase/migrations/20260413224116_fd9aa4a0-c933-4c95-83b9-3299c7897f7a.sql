@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ALTER COLUMN university SET DEFAULT 'California State University, Fullerton';
