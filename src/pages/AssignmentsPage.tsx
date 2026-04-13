@@ -72,10 +72,35 @@ export default function AssignmentsPage() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: Status }) => {
+      const update: any = { status };
+      if (status === "completed") {
+        update.progress = 100;
+        update.completed_at = new Date().toISOString();
+      } else if (status === "in-progress") {
+        update.progress = 50;
+        update.completed_at = null;
+      } else {
+        update.progress = 0;
+        update.completed_at = null;
+      }
+      const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+      toast({ title: "Status updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
-      // Create the assignment
       const { data: assignment, error: aErr } = await supabase
         .from("assignments")
         .insert({
@@ -88,16 +113,9 @@ export default function AssignmentsPage() {
         .select()
         .single();
       if (aErr) throw aErr;
-
-      // Link to user
       const { error: uaErr } = await supabase
         .from("user_assignments")
-        .insert({
-          user_id: user.id,
-          assignment_id: assignment.id,
-          status: "pending",
-          progress: 0,
-        });
+        .insert({ user_id: user.id, assignment_id: assignment.id, status: "pending", progress: 0 });
       if (uaErr) throw uaErr;
       return assignment;
     },
