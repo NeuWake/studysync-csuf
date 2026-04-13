@@ -21,6 +21,7 @@ interface Stroke {
   tool: Tool;
   points: number[][];
   color: string;
+  fillColor?: string | null;
   strokeWidth: number;
   startX: number;
   startY: number;
