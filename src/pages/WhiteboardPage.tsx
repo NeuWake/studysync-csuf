@@ -114,6 +114,8 @@ export default function WhiteboardPage() {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const suppressRefetchRef = useRef(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null); // "tl" | "tr" | "bl" | "br" | null
+  const [resizeOrigin, setResizeOrigin] = useState<{ fixedX: number; fixedY: number } | null>(null);
 
   // Sticky notes
   const [showNotes, setShowNotes] = useState(false);
