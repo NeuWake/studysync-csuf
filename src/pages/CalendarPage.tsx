@@ -407,6 +407,10 @@ export default function CalendarPage() {
           open={editOpen}
           onOpenChange={setEditOpen}
           onSubmit={handleEdit}
+          onDelete={() => {
+            setEditOpen(false);
+            openDelete(selectedEvent);
+          }}
           mode="edit"
           initialData={{
             title: selectedEvent.title,
