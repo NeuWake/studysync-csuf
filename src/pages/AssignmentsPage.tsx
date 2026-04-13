@@ -4,30 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Filter, RefreshCw, Upload, Clock, CheckCircle, AlertTriangle, Circle } from "lucide-react";
+import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 type Status = "pending" | "in-progress" | "completed" | "missed";
-
-interface Assignment {
-  id: number;
-  title: string;
-  course: string;
-  dueDate: string;
-  status: Status;
-  type: string;
-  progress: number;
-  isCanvas: boolean;
-}
-
-const mockAssignments: Assignment[] = [
-  { id: 1, title: "Final Project Submission", course: "CS 301", dueDate: "2025-04-15", status: "in-progress", type: "project", progress: 65, isCanvas: true },
-  { id: 2, title: "Problem Set 8", course: "MATH 250", dueDate: "2025-04-16", status: "pending", type: "homework", progress: 0, isCanvas: true },
-  { id: 3, title: "Analytical Essay Draft", course: "ENG 102", dueDate: "2025-04-17", status: "in-progress", type: "essay", progress: 40, isCanvas: true },
-  { id: 4, title: "Lab Report #6", course: "PHYS 201", dueDate: "2025-04-19", status: "pending", type: "lab", progress: 0, isCanvas: false },
-  { id: 5, title: "Chapter Review Quiz", course: "CS 301", dueDate: "2025-04-12", status: "completed", type: "quiz", progress: 100, isCanvas: true },
-  { id: 6, title: "Study Group Notes", course: "MATH 250", dueDate: "2025-04-10", status: "missed", type: "homework", progress: 0, isCanvas: false },
-];
 
 const statusConfig: Record<Status, { label: string; icon: React.ElementType; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", icon: Circle, variant: "outline" },
@@ -37,18 +21,76 @@ const statusConfig: Record<Status, { label: string; icon: React.ElementType; var
 };
 
 export default function AssignmentsPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCourse, setFilterCourse] = useState<string>("all");
 
-  const filtered = mockAssignments.filter((a) => {
-    if (search && !a.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filterStatus !== "all" && a.status !== filterStatus) return false;
-    if (filterCourse !== "all" && a.course !== filterCourse) return false;
-    return true;
+  // Fetch user's assignments with course info
+  const { data: assignments = [], isLoading } = useQuery({
+    queryKey: ["user-assignments", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("user_assignments")
+        .select(`
+          id, status, progress, completed_at,
+          assignment:assignments(id, title, description, due_date, assignment_type, canvas_assignment_id, max_points,
+            course:courses(id, name, code, color)
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
   });
 
-  const courses = [...new Set(mockAssignments.map((a) => a.course))];
+  // Canvas sync mutation
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.functions.invoke("canvas-sync", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Canvas sync complete!",
+        description: `Synced ${data.synced_courses} courses, ${data.synced_assignments} assignments.${data.errors ? ` (${data.errors.length} warnings)` : ""}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Sync failed", description: err.message || "Check your Canvas token in Profile settings.", variant: "destructive" });
+    },
+  });
+
+  // Get unique courses for filter
+  const courses = [...new Set(
+    assignments
+      .map((a: any) => a.assignment?.course?.name)
+      .filter(Boolean)
+  )];
+
+  // Filter
+  const filtered = assignments.filter((a: any) => {
+    const assign = a.assignment;
+    if (!assign) return false;
+    if (search && !assign.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterStatus !== "all" && a.status !== filterStatus) return false;
+    if (filterCourse !== "all" && assign.course?.name !== filterCourse) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -58,8 +100,14 @@ export default function AssignmentsPage() {
           <p className="text-muted-foreground mt-1">Track and manage all your coursework</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" /> Sync Canvas
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+          >
+            {syncMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Sync Canvas
           </Button>
           <Button className="gap-2">
             <Plus className="h-4 w-4" /> New Task
@@ -67,16 +115,13 @@ export default function AssignmentsPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search assignments..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
@@ -86,9 +131,7 @@ export default function AssignmentsPage() {
           </SelectContent>
         </Select>
         <Select value={filterCourse} onValueChange={setFilterCourse}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Course" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Course" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Courses</SelectItem>
             {courses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -96,43 +139,62 @@ export default function AssignmentsPage() {
         </Select>
       </div>
 
-      {/* Assignment list */}
-      <div className="space-y-3">
-        {filtered.map((a) => {
-          const sc = statusConfig[a.status];
-          return (
-            <Card key={a.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-foreground">{a.title}</h3>
-                      {a.isCanvas && <Badge variant="outline" className="text-[10px]">Canvas</Badge>}
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">No assignments found. Click "Sync Canvas" to pull your coursework, or create a manual task.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((a: any) => {
+            const assign = a.assignment;
+            if (!assign) return null;
+            const status = (a.status || "pending") as Status;
+            const sc = statusConfig[status];
+            const dueDate = assign.due_date ? new Date(assign.due_date).toLocaleDateString() : "No due date";
+            const isCanvas = !!assign.canvas_assignment_id;
+
+            return (
+              <Card key={a.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="flex items-center gap-2 mb-1">
+                        {assign.course?.color && (
+                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: assign.course.color }} />
+                        )}
+                        <h3 className="font-medium text-foreground">{assign.title}</h3>
+                        {isCanvas && <Badge variant="outline" className="text-[10px]">Canvas</Badge>}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <span>{assign.course?.name || "No course"}</span>
+                        <span>•</span>
+                        <span>Due {dueDate}</span>
+                        <span>•</span>
+                        <span className="capitalize">{assign.assignment_type}</span>
+                        {assign.max_points && <><span>•</span><span>{assign.max_points} pts</span></>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span>{a.course}</span>
-                      <span>•</span>
-                      <span>Due {a.dueDate}</span>
-                      <span>•</span>
-                      <span className="capitalize">{a.type}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-32">
+                        <Progress value={a.progress || 0} className="h-2" />
+                        <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress || 0}%</p>
+                      </div>
+                      <Badge variant={sc.variant} className="gap-1">
+                        <sc.icon className="h-3 w-3" />
+                        {sc.label}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32">
-                      <Progress value={a.progress} className="h-2" />
-                      <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress}%</p>
-                    </div>
-                    <Badge variant={sc.variant} className="gap-1">
-                      <sc.icon className="h-3 w-3" />
-                      {sc.label}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
