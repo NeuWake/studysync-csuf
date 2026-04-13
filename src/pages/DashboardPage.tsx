@@ -12,7 +12,7 @@ export default function DashboardPage() {
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("user_id", user!.id).single();
+      const { data } = await supabase.from("profiles").select("*").eq("user_id", user!.id).maybeSingle();
       return data;
     },
     enabled: !!user,
