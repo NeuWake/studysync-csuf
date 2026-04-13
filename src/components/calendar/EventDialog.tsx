@@ -20,6 +20,7 @@ interface EventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: EventFormData, imageFile: File | null) => Promise<void>;
+  onDelete?: () => void;
   initialData?: EventFormData;
   mode: "create" | "edit";
 }
