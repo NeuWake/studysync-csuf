@@ -25,7 +25,7 @@ interface EventDialogProps {
   mode: "create" | "edit";
 }
 
-export default function EventDialog({ open, onOpenChange, onSubmit, initialData, mode }: EventDialogProps) {
+export default function EventDialog({ open, onOpenChange, onSubmit, onDelete, initialData, mode }: EventDialogProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
