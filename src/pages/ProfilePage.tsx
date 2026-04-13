@@ -24,7 +24,7 @@ export default function ProfilePage() {
     gradYear: "",
     studyInterests: "",
     canvasToken: "",
-    canvasBaseUrl: "https://msmary.instructure.com",
+    canvasBaseUrl: "https://csufullerton.instructure.com",
     helpPoints: 0,
     studyStreaks: 0,
   });
@@ -45,7 +45,7 @@ export default function ProfilePage() {
             gradYear: data.grad_year?.toString() || "",
             studyInterests: data.study_interests || "",
             canvasToken: data.canvas_access_token || "",
-            canvasBaseUrl: data.canvas_base_url || "https://msmary.instructure.com",
+            canvasBaseUrl: data.canvas_base_url || "https://csufullerton.instructure.com",
             helpPoints: data.help_points || 0,
             studyStreaks: data.study_streaks || 0,
           });
