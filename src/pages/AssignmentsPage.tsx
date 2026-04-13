@@ -230,10 +230,24 @@ export default function AssignmentsPage() {
                         <Progress value={a.progress || 0} className="h-2" />
                         <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress || 0}%</p>
                       </div>
-                      <Badge variant={sc.variant} className="gap-1">
-                        <sc.icon className="h-3 w-3" />
-                        {sc.label}
-                      </Badge>
+                      <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status })}>
+                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                          <div className="flex items-center gap-1">
+                            <sc.icon className="h-3 w-3" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.entries(statusConfig) as [Status, typeof sc][]).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-1.5">
+                                <cfg.icon className="h-3 w-3" />
+                                {cfg.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardContent>
