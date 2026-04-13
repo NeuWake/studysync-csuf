@@ -74,7 +74,17 @@ export default function CalendarPage() {
         .lte("start_time", end)
         .order("start_time", { ascending: true });
       if (error) throw error;
-      return data || [];
+      // Resolve signed URLs for event images
+      const resolved = await Promise.all(
+        (data || []).map(async (e: any) => {
+          if (e.image_url) {
+            const signedUrl = await getSignedImageUrl(e.image_url);
+            return { ...e, image_url_signed: signedUrl };
+          }
+          return e;
+        })
+      );
+      return resolved;
     },
     enabled: !!user,
   });
