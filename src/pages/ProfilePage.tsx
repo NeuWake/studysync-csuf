@@ -183,6 +183,8 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      <ThemeSettingsCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Key className="h-5 w-5" /> Canvas Integration</CardTitle>
