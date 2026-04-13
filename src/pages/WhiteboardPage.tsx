@@ -103,6 +103,7 @@ export default function WhiteboardPage() {
   // Drawing state
   const [activeTool, setActiveTool] = useState<Tool>("pen");
   const [activeColor, setActiveColor] = useState("#000000");
+  const [activeFillColor, setActiveFillColor] = useState<string>("transparent");
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
