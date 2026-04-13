@@ -546,6 +546,59 @@ export type Database = {
           },
         ]
       }
+      whiteboard_strokes: {
+        Row: {
+          color: string | null
+          created_at: string
+          end_x: number | null
+          end_y: number | null
+          id: string
+          points: Json | null
+          start_x: number | null
+          start_y: number | null
+          stroke_width: number | null
+          tool: string
+          user_id: string
+          whiteboard_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          end_x?: number | null
+          end_y?: number | null
+          id?: string
+          points?: Json | null
+          start_x?: number | null
+          start_y?: number | null
+          stroke_width?: number | null
+          tool?: string
+          user_id: string
+          whiteboard_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          end_x?: number | null
+          end_y?: number | null
+          id?: string
+          points?: Json | null
+          start_x?: number | null
+          start_y?: number | null
+          stroke_width?: number | null
+          tool?: string
+          user_id?: string
+          whiteboard_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whiteboard_strokes_whiteboard_id_fkey"
+            columns: ["whiteboard_id"]
+            isOneToOne: false
+            referencedRelation: "whiteboards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whiteboards: {
         Row: {
           course_id: string | null
