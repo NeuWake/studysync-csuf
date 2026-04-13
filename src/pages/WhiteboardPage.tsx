@@ -543,6 +543,21 @@ export default function WhiteboardPage() {
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const [x, y] = getPos(e);
 
+    // Handle resizing selected stroke
+    if (activeTool === "select" && resizeHandle && resizeOrigin && selectedStrokeIndex !== null) {
+      setLocalStrokes((prev) => {
+        const updated = [...prev];
+        const s = { ...updated[selectedStrokeIndex] };
+        s.startX = resizeOrigin.fixedX;
+        s.startY = resizeOrigin.fixedY;
+        s.endX = x;
+        s.endY = y;
+        updated[selectedStrokeIndex] = s;
+        return updated;
+      });
+      return;
+    }
+
     // Handle dragging selected stroke
     if (activeTool === "select" && isDragging && selectedStrokeIndex !== null && dragOffset) {
       setLocalStrokes((prev) => {
