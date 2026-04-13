@@ -163,6 +163,7 @@ export default function WhiteboardPage() {
         tool: s.tool as Tool,
         points: (s.points as number[][]) || [],
         color: s.color || "#000000",
+        fillColor: s.fill_color || null,
         strokeWidth: s.stroke_width || 2,
         startX: Number(s.start_x) || 0,
         startY: Number(s.start_y) || 0,
