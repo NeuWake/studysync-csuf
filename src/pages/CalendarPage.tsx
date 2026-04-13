@@ -1,16 +1,15 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ChevronLeft, ChevronRight, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import EventDialog from "@/components/calendar/EventDialog";
 
 const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -25,22 +24,31 @@ const eventTypeColors: Record<string, string> = {
   assignment: "bg-blue-500",
 };
 
+async function uploadEventImage(userId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop();
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from("event-images").upload(path, file);
+  if (error) throw error;
+  const { data } = supabase.storage.from("event-images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week" | "day">("month");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({ title: "", startTime: "", endTime: "", eventType: "personal" as string });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const today = new Date();
 
-  const navigate = (dir: number) => {
-    setCurrentDate(new Date(year, month + dir, 1));
-  };
+  const navigate = (dir: number) => setCurrentDate(new Date(year, month + dir, 1));
 
   // Fetch user events
   const { data: events = [], isLoading: eventsLoading } = useQuery({
@@ -74,7 +82,6 @@ export default function CalendarPage() {
         .select("id, status, assignment:assignments(id, title, due_date, course:courses(name, color))")
         .eq("user_id", user.id);
       if (error) throw error;
-      // Filter to this month client-side
       return (data || []).filter((ua: any) => {
         const due = ua.assignment?.due_date;
         return due && due >= start && due <= end;
@@ -85,7 +92,7 @@ export default function CalendarPage() {
 
   // Combine events and assignments into calendar items
   const calendarItems = useMemo(() => {
-    const items: { date: number; title: string; color: string; type: string; time: string }[] = [];
+    const items: { date: number; title: string; color: string; type: string; time: string; eventId?: string; raw?: any }[] = [];
 
     events.forEach((e: any) => {
       const d = new Date(e.start_time);
@@ -96,6 +103,8 @@ export default function CalendarPage() {
           color: e.color || (e.course as any)?.color || eventTypeColors[e.event_type] || "bg-primary",
           type: e.event_type || "personal",
           time: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          eventId: e.id,
+          raw: e,
         });
       }
     });
@@ -118,7 +127,6 @@ export default function CalendarPage() {
     return items;
   }, [events, assignments, month, year]);
 
-  // Group items by date
   const itemsByDate = useMemo(() => {
     const map = new Map<number, typeof calendarItems>();
     calendarItems.forEach((item) => {
@@ -129,13 +137,11 @@ export default function CalendarPage() {
     return map;
   }, [calendarItems]);
 
-  // Today's items
   const todayItems = useMemo(() => {
     if (today.getMonth() !== month || today.getFullYear() !== year) return [];
     return itemsByDate.get(today.getDate()) || [];
   }, [itemsByDate, today, month, year]);
 
-  // Upcoming assignments for study suggestions
   const upcomingAssignments = useMemo(() => {
     return assignments
       .filter((ua: any) => {
@@ -146,29 +152,79 @@ export default function CalendarPage() {
       .slice(0, 3);
   }, [assignments, today]);
 
-  // Create event mutation
-  const createEventMutation = useMutation({
-    mutationFn: async () => {
-      if (!user || !newEvent.title.trim() || !newEvent.startTime) throw new Error("Missing fields");
-      const { error } = await supabase.from("user_events").insert({
-        user_id: user.id,
-        title: newEvent.title.trim(),
-        start_time: new Date(newEvent.startTime).toISOString(),
-        end_time: newEvent.endTime ? new Date(newEvent.endTime).toISOString() : null,
-        event_type: newEvent.eventType as any,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-events"] });
-      setDialogOpen(false);
-      setNewEvent({ title: "", startTime: "", endTime: "", eventType: "personal" });
-      toast({ title: "Event created!" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
-  });
+  // Create event
+  const handleCreate = async (data: any, imageFile: File | null) => {
+    if (!user) return;
+    let imageUrl: string | null = null;
+    if (imageFile) {
+      imageUrl = await uploadEventImage(user.id, imageFile);
+    }
+    const { error } = await supabase.from("user_events").insert({
+      user_id: user.id,
+      title: data.title.trim(),
+      start_time: new Date(data.startTime).toISOString(),
+      end_time: data.endTime ? new Date(data.endTime).toISOString() : null,
+      event_type: data.eventType as any,
+      image_url: imageUrl,
+    } as any);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["user-events"] });
+    setCreateOpen(false);
+    toast({ title: "Event created!" });
+  };
+
+  // Edit event
+  const handleEdit = async (data: any, imageFile: File | null) => {
+    if (!user || !selectedEvent) return;
+    let imageUrl = data.imageUrl || null;
+    if (imageFile) {
+      imageUrl = await uploadEventImage(user.id, imageFile);
+    }
+    const { error } = await supabase
+      .from("user_events")
+      .update({
+        title: data.title.trim(),
+        start_time: new Date(data.startTime).toISOString(),
+        end_time: data.endTime ? new Date(data.endTime).toISOString() : null,
+        event_type: data.eventType as any,
+        image_url: imageUrl,
+      } as any)
+      .eq("id", selectedEvent.id);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ["user-events"] });
+    setEditOpen(false);
+    setSelectedEvent(null);
+    toast({ title: "Event updated!" });
+  };
+
+  // Delete event
+  const handleDelete = async () => {
+    if (!selectedEvent) return;
+    const { error } = await supabase.from("user_events").delete().eq("id", selectedEvent.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["user-events"] });
+    setDeleteOpen(false);
+    setSelectedEvent(null);
+    toast({ title: "Event deleted" });
+  };
+
+  const openEdit = (event: any) => {
+    setSelectedEvent(event);
+    setEditOpen(true);
+  };
+
+  const openDelete = (event: any) => {
+    setSelectedEvent(event);
+    setDeleteOpen(true);
+  };
+
+  const toLocalDatetime = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
 
   // Calendar grid
   const firstDay = new Date(year, month, 1).getDay();
@@ -187,52 +243,9 @@ export default function CalendarPage() {
           <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground mt-1">Unified view of all your deadlines, classes, and events</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" /> Add Event</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>New Event</DialogTitle></DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input placeholder="e.g. CS 301 Lecture" value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Start</Label>
-                  <Input type="datetime-local" value={newEvent.startTime} onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>End (optional)</Label>
-                  <Input type="datetime-local" value={newEvent.endTime} onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={newEvent.eventType} onValueChange={(v) => setNewEvent({ ...newEvent, eventType: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lecture">Lecture</SelectItem>
-                    <SelectItem value="lab">Lab</SelectItem>
-                    <SelectItem value="office_hours">Office Hours</SelectItem>
-                    <SelectItem value="personal">Personal</SelectItem>
-                    <SelectItem value="study">Study</SelectItem>
-                    <SelectItem value="exam">Exam</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => createEventMutation.mutate()}
-                disabled={createEventMutation.isPending || !newEvent.title.trim() || !newEvent.startTime}
-              >
-                {createEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Create Event
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" /> Add Event
+        </Button>
       </div>
 
       <div className="flex items-center justify-between">
@@ -277,14 +290,13 @@ export default function CalendarPage() {
                               <div
                                 key={j}
                                 className="text-[10px] rounded px-1 truncate text-white"
-                                style={{ backgroundColor: item.color.startsWith("bg-") ? undefined : item.color }}
-                                // For Tailwind bg classes we use a div approach
                               >
                                 <span
-                                  className={`${item.color.startsWith("bg-") ? item.color + " text-white" : ""} block rounded px-0.5`}
+                                  className={`${item.color.startsWith("bg-") ? item.color + " text-white" : ""} block rounded px-0.5 flex items-center gap-0.5`}
                                   style={!item.color.startsWith("bg-") ? { backgroundColor: item.color, color: "white" } : undefined}
                                 >
-                                  {item.title}
+                                  {item.raw?.image_url && <ImageIcon className="h-2 w-2 shrink-0" />}
+                                  <span className="truncate">{item.title}</span>
                                 </span>
                               </div>
                             ))}
@@ -312,15 +324,35 @@ export default function CalendarPage() {
                 <p className="text-sm text-muted-foreground">Nothing scheduled today.</p>
               ) : (
                 todayItems.map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50">
+                  <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 group">
                     <div
                       className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${item.color.startsWith("bg-") ? item.color : ""}`}
                       style={!item.color.startsWith("bg-") ? { backgroundColor: item.color } : undefined}
                     />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
                       <p className="text-xs text-muted-foreground">{item.time} · <span className="capitalize">{item.type.replace("_", " ")}</span></p>
+                      {item.raw?.image_url && (
+                        <img src={item.raw.image_url} alt="" className="mt-1 rounded h-12 w-20 object-cover" />
+                      )}
                     </div>
+                    {item.eventId && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(item.raw)}>
+                            <Pencil className="h-3 w-3 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDelete(item.raw)} className="text-destructive">
+                            <Trash2 className="h-3 w-3 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 ))
               )}
@@ -354,6 +386,49 @@ export default function CalendarPage() {
           </Card>
         </div>
       </div>
+
+      {/* Create Event Dialog */}
+      <EventDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSubmit={handleCreate}
+        mode="create"
+      />
+
+      {/* Edit Event Dialog */}
+      {selectedEvent && (
+        <EventDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSubmit={handleEdit}
+          mode="edit"
+          initialData={{
+            title: selectedEvent.title,
+            startTime: toLocalDatetime(selectedEvent.start_time),
+            endTime: selectedEvent.end_time ? toLocalDatetime(selectedEvent.end_time) : "",
+            eventType: selectedEvent.event_type || "personal",
+            imageUrl: selectedEvent.image_url || "",
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedEvent?.title}"? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
