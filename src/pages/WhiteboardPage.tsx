@@ -358,19 +358,34 @@ export default function WhiteboardPage() {
       ctx.strokeStyle = "#3B82F6";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([5, 3]);
+      let bx: number, by: number, bw: number, bh: number;
       if (stroke.tool === "pen" || stroke.tool === "eraser") {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const [sx, sy] of stroke.points) {
           minX = Math.min(minX, sx); minY = Math.min(minY, sy);
           maxX = Math.max(maxX, sx); maxY = Math.max(maxY, sy);
         }
-        ctx.strokeRect(minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8);
+        bx = minX - 4; by = minY - 4; bw = maxX - minX + 8; bh = maxY - minY + 8;
       } else {
-        const minX = Math.min(stroke.startX, stroke.endX);
-        const minY = Math.min(stroke.startY, stroke.endY);
-        const maxX = Math.max(stroke.startX, stroke.endX);
-        const maxY = Math.max(stroke.startY, stroke.endY);
-        ctx.strokeRect(minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8);
+        bx = Math.min(stroke.startX, stroke.endX) - 4;
+        by = Math.min(stroke.startY, stroke.endY) - 4;
+        bw = Math.abs(stroke.endX - stroke.startX) + 8;
+        bh = Math.abs(stroke.endY - stroke.startY) + 8;
+      }
+      ctx.strokeRect(bx, by, bw, bh);
+      // Draw resize handles (corners)
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = "#3B82F6";
+      ctx.lineWidth = 2;
+      const handleSize = 8;
+      const corners = [
+        [bx, by], [bx + bw, by],
+        [bx, by + bh], [bx + bw, by + bh],
+      ];
+      for (const [cx, cy] of corners) {
+        ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+        ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       }
       ctx.restore();
     }
