@@ -32,27 +32,25 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setProfile({
-            fullName: data.full_name || "",
-            university: data.university || "",
-            major: data.major || "",
-            gradYear: data.grad_year?.toString() || "",
-            studyInterests: data.study_interests || "",
-            canvasToken: data.canvas_access_token || "",
-            canvasBaseUrl: data.canvas_base_url || "https://csufullerton.instructure.com",
-            helpPoints: data.help_points || 0,
-            studyStreaks: data.study_streaks || 0,
-          });
-        }
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("user_canvas_credentials").select("*").eq("user_id", user.id).maybeSingle(),
+    ]).then(([{ data: profileData }, { data: credData }]) => {
+      if (profileData) {
+        setProfile({
+          fullName: profileData.full_name || "",
+          university: profileData.university || "",
+          major: profileData.major || "",
+          gradYear: profileData.grad_year?.toString() || "",
+          studyInterests: profileData.study_interests || "",
+          canvasToken: credData?.canvas_access_token || "",
+          canvasBaseUrl: credData?.canvas_base_url || "https://csufullerton.instructure.com",
+          helpPoints: profileData.help_points || 0,
+          studyStreaks: profileData.study_streaks || 0,
+        });
+      }
+      setLoading(false);
+    });
   }, [user]);
 
   const handleSave = async () => {
@@ -83,14 +81,23 @@ export default function ProfilePage() {
 
     const baseUrl = profile.canvasBaseUrl.replace(/\/$/, "");
     try {
-      // Save token to profile directly (Canvas API can't be called from browser due to CORS)
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          canvas_access_token: profile.canvasToken.trim(),
-          canvas_base_url: baseUrl,
-        })
-        .eq("user_id", user.id);
+      const { data: existing } = await supabase
+        .from("user_canvas_credentials")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        ({ error } = await supabase
+          .from("user_canvas_credentials")
+          .update({ canvas_access_token: profile.canvasToken.trim(), canvas_base_url: baseUrl })
+          .eq("user_id", user.id));
+      } else {
+        ({ error } = await supabase
+          .from("user_canvas_credentials")
+          .insert({ user_id: user.id, canvas_access_token: profile.canvasToken.trim(), canvas_base_url: baseUrl }));
+      }
 
       if (error) {
         toast({ title: "Error saving token", description: error.message, variant: "destructive" });

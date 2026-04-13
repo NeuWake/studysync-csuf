@@ -238,8 +238,6 @@ export type Database = {
         Row: {
           accent_color: string | null
           avatar_url: string | null
-          canvas_access_token: string | null
-          canvas_base_url: string | null
           created_at: string
           dashboard_config: Json | null
           full_name: string | null
@@ -257,8 +255,6 @@ export type Database = {
         Insert: {
           accent_color?: string | null
           avatar_url?: string | null
-          canvas_access_token?: string | null
-          canvas_base_url?: string | null
           created_at?: string
           dashboard_config?: Json | null
           full_name?: string | null
@@ -276,8 +272,6 @@ export type Database = {
         Update: {
           accent_color?: string | null
           avatar_url?: string | null
-          canvas_access_token?: string | null
-          canvas_base_url?: string | null
           created_at?: string
           dashboard_config?: Json | null
           full_name?: string | null
@@ -372,6 +366,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_canvas_credentials: {
+        Row: {
+          canvas_access_token: string | null
+          canvas_base_url: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          canvas_access_token?: string | null
+          canvas_base_url?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          canvas_access_token?: string | null
+          canvas_base_url?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_courses: {
         Row: {
