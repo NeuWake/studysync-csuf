@@ -450,9 +450,9 @@ export default function WhiteboardPage() {
     }
     setIsDrawing(true);
     if (activeTool === "pen" || activeTool === "eraser") {
-      setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
+      setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, fillColor: null, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
     } else {
-      setCurrentStroke({ tool: activeTool, points: [], color: activeColor, strokeWidth, startX: x, startY: y, endX: x, endY: y });
+      setCurrentStroke({ tool: activeTool, points: [], color: activeColor, fillColor: activeFillColor === "transparent" ? null : activeFillColor, strokeWidth, startX: x, startY: y, endX: x, endY: y });
     }
   };
 
