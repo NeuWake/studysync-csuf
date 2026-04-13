@@ -1,41 +1,144 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "recharts";
-import { TrendingUp, Award, Flame, Target } from "lucide-react";
-
-const completionData = [
-  { month: "Jan", completed: 12, missed: 1 },
-  { month: "Feb", completed: 15, missed: 2 },
-  { month: "Mar", completed: 18, missed: 0 },
-  { month: "Apr", completed: 8, missed: 1 },
-];
-
-const courseData = [
-  { name: "CS 301", value: 85, color: "hsl(25, 95%, 53%)" },
-  { name: "MATH 250", value: 72, color: "hsl(217, 91%, 60%)" },
-  { name: "ENG 102", value: 93, color: "hsl(142, 71%, 45%)" },
-  { name: "PHYS 201", value: 61, color: "hsl(43, 96%, 56%)" },
-];
-
-const streakData = [
-  { day: "Mon", tasks: 4 },
-  { day: "Tue", tasks: 3 },
-  { day: "Wed", tasks: 5 },
-  { day: "Thu", tasks: 2 },
-  { day: "Fri", tasks: 6 },
-  { day: "Sat", tasks: 1 },
-  { day: "Sun", tasks: 3 },
-];
-
-const timeData = [
-  { week: "W1", avgHours: 2.5 },
-  { week: "W2", avgHours: 3.1 },
-  { week: "W3", avgHours: 2.0 },
-  { week: "W4", avgHours: 1.8 },
-  { week: "W5", avgHours: 2.2 },
-];
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { TrendingUp, Award, Flame, Target, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, addDays, differenceInHours } from "date-fns";
+import { useMemo } from "react";
 
 export default function StatsPage() {
+  const { user } = useAuth();
+
+  const { data: userAssignments, isLoading: loadingUA } = useQuery({
+    queryKey: ["stats-user-assignments", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_assignments")
+        .select("*, assignments(title, due_date, course_id, courses(name, code, color))")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ["stats-profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("help_points, study_streaks")
+        .eq("user_id", user!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const stats = useMemo(() => {
+    if (!userAssignments) return null;
+
+    const total = userAssignments.length;
+    const completed = userAssignments.filter((a) => a.status === "completed").length;
+    const missed = userAssignments.filter((a) => a.status === "missed").length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    // Monthly completion data (last 6 months)
+    const monthlyData = [];
+    for (let i = 5; i >= 0; i--) {
+      const month = subMonths(new Date(), i);
+      const start = startOfMonth(month);
+      const end = endOfMonth(month);
+      const inRange = userAssignments.filter((a) => {
+        const d = a.completed_at ? new Date(a.completed_at) : a.assignments?.due_date ? new Date(a.assignments.due_date) : null;
+        return d && d >= start && d <= end;
+      });
+      monthlyData.push({
+        month: format(month, "MMM"),
+        completed: inRange.filter((a) => a.status === "completed").length,
+        missed: inRange.filter((a) => a.status === "missed").length,
+      });
+    }
+
+    // Course completion breakdown
+    const courseMap = new Map<string, { name: string; completed: number; total: number; color: string }>();
+    userAssignments.forEach((ua) => {
+      const course = (ua.assignments as any)?.courses;
+      const courseId = (ua.assignments as any)?.course_id || "uncategorized";
+      const existing = courseMap.get(courseId) || {
+        name: course?.code || course?.name || "Other",
+        completed: 0,
+        total: 0,
+        color: course?.color || "#F97316",
+      };
+      existing.total++;
+      if (ua.status === "completed") existing.completed++;
+      courseMap.set(courseId, existing);
+    });
+    const courseData = Array.from(courseMap.values()).map((c) => ({
+      name: c.name,
+      value: c.total > 0 ? Math.round((c.completed / c.total) * 100) : 0,
+      color: c.color,
+    }));
+
+    // Weekly activity (current week)
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const weeklyData = days.map((day, i) => {
+      const dayDate = addDays(weekStart, i);
+      const tasks = userAssignments.filter((a) => {
+        if (a.status !== "completed" || !a.completed_at) return false;
+        const d = new Date(a.completed_at);
+        return d.toDateString() === dayDate.toDateString();
+      }).length;
+      return { day, tasks };
+    });
+
+    // Avg time to completion (last 5 weeks)
+    const timeData = [];
+    for (let i = 4; i >= 0; i--) {
+      const wStart = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), -i * 7);
+      const wEnd = addDays(wStart, 7);
+      const weekCompleted = userAssignments.filter((a) => {
+        if (a.status !== "completed" || !a.completed_at) return false;
+        const d = new Date(a.completed_at);
+        return d >= wStart && d < wEnd;
+      });
+      const avgHours =
+        weekCompleted.length > 0
+          ? Math.round(
+              (weekCompleted.reduce((sum, a) => {
+                const created = new Date(a.created_at);
+                const done = new Date(a.completed_at!);
+                return sum + Math.max(differenceInHours(done, created), 0);
+              }, 0) /
+                weekCompleted.length) *
+                10
+            ) / 10
+          : 0;
+      timeData.push({ week: `W${5 - i}`, avgHours });
+    }
+
+    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData, timeData };
+  }, [userAssignments]);
+
+  if (loadingUA) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const summaryCards = [
+    { label: "Completion Rate", value: `${stats?.completionRate ?? 0}%`, icon: Target, color: "text-primary" },
+    { label: "Current Streak", value: `${profile?.study_streaks ?? 0} days`, icon: Flame, color: "text-destructive" },
+    { label: "Total Completed", value: `${stats?.completed ?? 0}`, icon: TrendingUp, color: "text-success" },
+    { label: "Help Points", value: `${profile?.help_points ?? 0}`, icon: Award, color: "text-secondary" },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -43,14 +146,8 @@ export default function StatsPage() {
         <p className="text-muted-foreground mt-1">Track your productivity and progress</p>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Completion Rate", value: "87%", icon: Target, color: "text-primary" },
-          { label: "Current Streak", value: "12 days", icon: Flame, color: "text-destructive" },
-          { label: "Total Completed", value: "53", icon: TrendingUp, color: "text-success" },
-          { label: "Help Points", value: "42", icon: Award, color: "text-secondary" },
-        ].map((s) => (
+        {summaryCards.map((s) => (
           <Card key={s.label}>
             <CardContent className="p-4 flex items-center gap-3">
               <s.icon className={`h-8 w-8 ${s.color}`} />
@@ -64,14 +161,11 @@ export default function StatsPage() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Completion over time */}
         <Card>
-          <CardHeader>
-            <CardTitle>Assignments Over Time</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Assignments Over Time</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={completionData}>
+              <BarChart data={stats?.monthlyData ?? []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" className="text-xs" />
                 <YAxis className="text-xs" />
@@ -83,33 +177,31 @@ export default function StatsPage() {
           </CardContent>
         </Card>
 
-        {/* Course completion pie */}
         <Card>
-          <CardHeader>
-            <CardTitle>Completion by Course</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Completion by Course</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie data={courseData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
-                  {courseData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {stats?.courseData?.length ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={stats.courseData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
+                    {stats.courseData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground text-center py-16">No course data yet</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Weekly activity */}
         <Card>
-          <CardHeader>
-            <CardTitle>Weekly Activity</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Weekly Activity</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={streakData}>
+              <BarChart data={stats?.weeklyData ?? []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="day" className="text-xs" />
                 <YAxis className="text-xs" />
@@ -120,14 +212,11 @@ export default function StatsPage() {
           </CardContent>
         </Card>
 
-        {/* Time to completion trends */}
         <Card>
-          <CardHeader>
-            <CardTitle>Avg Time to Completion</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Avg Time to Completion</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={timeData}>
+              <LineChart data={stats?.timeData ?? []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="week" className="text-xs" />
                 <YAxis className="text-xs" />
