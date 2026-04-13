@@ -201,6 +201,12 @@ export default function WhiteboardPage() {
       ctx.beginPath();
       ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (stroke.tool === "text" && stroke.text) {
+      const fontSize = Math.max(stroke.strokeWidth * 5, 16);
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.fillStyle = stroke.color;
+      ctx.textBaseline = "top";
+      ctx.fillText(stroke.text, stroke.startX, stroke.startY);
     }
   }, []);
 
