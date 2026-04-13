@@ -434,12 +434,29 @@ export default function WhiteboardPage() {
     const [x, y] = getPos(e);
 
     if (activeTool === "select") {
+      // Check if clicking on a resize handle of the already-selected stroke
+      if (selectedStrokeIndex !== null) {
+        const s = localStrokes[selectedStrokeIndex];
+        const handle = getResizeHandle(s, x, y);
+        if (handle) {
+          setResizeHandle(handle);
+          // The fixed corner is the opposite of the handle being dragged
+          const minX = Math.min(s.startX, s.endX);
+          const maxX = Math.max(s.startX, s.endX);
+          const minY = Math.min(s.startY, s.endY);
+          const maxY = Math.max(s.startY, s.endY);
+          const fixedX = handle.includes("r") ? minX : maxX;
+          const fixedY = handle.includes("b") ? minY : maxY;
+          setResizeOrigin({ fixedX, fixedY });
+          return;
+        }
+      }
+
       // Find topmost stroke under cursor (reverse order)
       for (let i = localStrokes.length - 1; i >= 0; i--) {
         if (hitTestStroke(localStrokes[i], x, y)) {
           setSelectedStrokeIndex(i);
           const s = localStrokes[i];
-          // Calculate offset for dragging
           if (s.tool === "pen" || s.tool === "eraser") {
             let minX = Infinity, minY = Infinity;
             for (const [sx, sy] of s.points) { minX = Math.min(minX, sx); minY = Math.min(minY, sy); }
