@@ -1,11 +1,12 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type Theme = "light" | "dark";
 
 export interface AccentColor {
   name: string;
-  hsl: string; // e.g. "25 95% 53%"
-  preview: string; // hex for preview swatch
+  hsl: string;
+  preview: string;
 }
 
 export const ACCENT_COLORS: AccentColor[] = [
@@ -35,6 +36,14 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export const useTheme = () => useContext(ThemeContext);
 
+function applyAccentColor(color: AccentColor) {
+  const root = document.documentElement;
+  root.style.setProperty("--primary", color.hsl);
+  root.style.setProperty("--ring", color.hsl);
+  root.style.setProperty("--sidebar-primary", color.hsl);
+  root.style.setProperty("--sidebar-ring", color.hsl);
+}
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("studysync-theme");
@@ -50,23 +59,71 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return ACCENT_COLORS[0];
   });
 
+  // Load from DB on auth change
+  useEffect(() => {
+    const loadFromDb = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("theme_mode, accent_color")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (data) {
+        if (data.theme_mode && (data.theme_mode === "light" || data.theme_mode === "dark")) {
+          setTheme(data.theme_mode as Theme);
+        }
+        if (data.accent_color) {
+          const found = ACCENT_COLORS.find((c) => c.name === data.accent_color);
+          if (found) setAccentColorState(found);
+        }
+      }
+    };
+
+    loadFromDb();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) loadFromDb();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Save to DB helper
+  const saveToDb = useCallback(async (themeMode: Theme, colorName: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase
+      .from("profiles")
+      .update({ theme_mode: themeMode, accent_color: colorName } as any)
+      .eq("user_id", user.id);
+  }, []);
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("studysync-theme", theme);
   }, [theme]);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--primary", accentColor.hsl);
-    root.style.setProperty("--ring", accentColor.hsl);
-    root.style.setProperty("--sidebar-primary", accentColor.hsl);
-    root.style.setProperty("--sidebar-ring", accentColor.hsl);
+    applyAccentColor(accentColor);
     localStorage.setItem("studysync-accent", accentColor.name);
   }, [accentColor]);
 
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
+  const toggleTheme = () => {
+    setTheme((t) => {
+      const next = t === "light" ? "dark" : "light";
+      saveToDb(next, accentColor.name);
+      return next;
+    });
+  };
 
-  const setAccentColor = (color: AccentColor) => setAccentColorState(color);
+  const setAccentColor = (color: AccentColor) => {
+    setAccentColorState(color);
+    saveToDb(theme, color.name);
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, accentColor, setAccentColor }}>
