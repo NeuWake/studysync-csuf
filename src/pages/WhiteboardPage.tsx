@@ -574,7 +574,7 @@ export default function WhiteboardPage() {
                     <canvas
                       ref={canvasRef}
                       className={`w-full h-full ${
-                        activeTool === "eraser" ? "cursor-cell" : "cursor-crosshair"
+                        activeTool === "eraser" ? "cursor-cell" : activeTool === "text" ? "cursor-text" : "cursor-crosshair"
                       }`}
                       onMouseDown={handleMouseDown}
                       onMouseMove={handleMouseMove}
@@ -582,6 +582,28 @@ export default function WhiteboardPage() {
                       onMouseLeave={handleMouseUp}
                     />
                   )}
+                  {textInput.visible && (
+                    <div
+                      className="absolute z-10"
+                      style={{ left: textInput.x, top: textInput.y }}
+                    >
+                      <input
+                        ref={textInputRef}
+                        type="text"
+                        value={textValue}
+                        onChange={(e) => setTextValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitText();
+                          if (e.key === "Escape") { setTextInput({ x: 0, y: 0, visible: false }); setTextValue(""); }
+                        }}
+                        onBlur={commitText}
+                        className="bg-transparent border-b-2 border-primary outline-none text-black px-1"
+                        style={{ fontSize: `${Math.max(strokeWidth * 5, 16)}px`, color: activeColor, minWidth: "100px" }}
+                        placeholder="Type here..."
+                        autoFocus
+                      />
+                    </div>
+                  )
                 </div>
               </CardContent>
             </Card>
