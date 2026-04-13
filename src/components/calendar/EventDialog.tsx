@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, ImagePlus, X } from "lucide-react";
+import { Loader2, ImagePlus, X, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,11 +20,12 @@ interface EventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: EventFormData, imageFile: File | null) => Promise<void>;
+  onDelete?: () => void;
   initialData?: EventFormData;
   mode: "create" | "edit";
 }
 
-export default function EventDialog({ open, onOpenChange, onSubmit, initialData, mode }: EventDialogProps) {
+export default function EventDialog({ open, onOpenChange, onSubmit, onDelete, initialData, mode }: EventDialogProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -164,14 +165,21 @@ export default function EventDialog({ open, onOpenChange, onSubmit, initialData,
             />
           </div>
 
-          <Button
-            className="w-full"
-            onClick={handleSubmit}
-            disabled={submitting || !formData.title.trim() || !formData.startTime}
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {mode === "create" ? "Create Event" : "Save Changes"}
-          </Button>
+          <div className="flex gap-2">
+            {mode === "edit" && onDelete && (
+              <Button variant="destructive" className="gap-2" onClick={onDelete} disabled={submitting}>
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
+            )}
+            <Button
+              className="flex-1"
+              onClick={handleSubmit}
+              disabled={submitting || !formData.title.trim() || !formData.startTime}
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {mode === "create" ? "Create Event" : "Save Changes"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
