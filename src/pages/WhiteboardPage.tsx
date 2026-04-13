@@ -202,6 +202,7 @@ export default function WhiteboardPage() {
   // Sync local strokes with DB strokes
   const dbStrokesJson = JSON.stringify(dbStrokes);
   useEffect(() => {
+    if (suppressRefetchRef.current) return;
     setLocalStrokes(JSON.parse(dbStrokesJson));
     setSelectedStrokeIndex(null);
   }, [dbStrokesJson]);
