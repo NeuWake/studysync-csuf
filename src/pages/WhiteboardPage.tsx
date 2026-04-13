@@ -603,7 +603,8 @@ export default function WhiteboardPage() {
                         autoFocus
                       />
                     </div>
-                  )
+                  )}
+
                 </div>
               </CardContent>
             </Card>
