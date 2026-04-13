@@ -80,26 +80,13 @@ export default function ProfilePage() {
     if (!user || !profile.canvasToken.trim()) return;
     setValidating(true);
 
-    // Test the token against Canvas API
     const baseUrl = profile.canvasBaseUrl.replace(/\/$/, "");
     try {
-      const res = await fetch(`${baseUrl}/api/v1/users/self`, {
-        headers: { Authorization: `Bearer ${profile.canvasToken}` },
-      });
-
-      if (!res.ok) {
-        toast({ title: "Invalid Canvas token", description: `Canvas returned ${res.status}. Please check your token.`, variant: "destructive" });
-        setValidating(false);
-        return;
-      }
-
-      const canvasUser = await res.json();
-
-      // Save to profile
+      // Save token to profile directly (Canvas API can't be called from browser due to CORS)
       const { error } = await supabase
         .from("profiles")
         .update({
-          canvas_access_token: profile.canvasToken,
+          canvas_access_token: profile.canvasToken.trim(),
           canvas_base_url: baseUrl,
         })
         .eq("user_id", user.id);
@@ -107,10 +94,10 @@ export default function ProfilePage() {
       if (error) {
         toast({ title: "Error saving token", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Canvas connected!", description: `Authenticated as ${canvasUser.name || canvasUser.login_id}` });
+        toast({ title: "Canvas token saved!", description: "Use 'Sync Canvas' on the Assignments page to test it." });
       }
     } catch (err) {
-      toast({ title: "Connection error", description: "Could not reach Canvas API. Check the base URL.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not save Canvas credentials.", variant: "destructive" });
     }
     setValidating(false);
   };
