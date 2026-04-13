@@ -120,6 +120,7 @@ export default function WhiteboardPage() {
         startY: Number(s.start_y) || 0,
         endX: Number(s.end_x) || 0,
         endY: Number(s.end_y) || 0,
+        text: s.tool === "text" ? (Array.isArray(s.points) && typeof s.points[0] === "string" ? s.points[0] : "") : undefined,
       }));
     },
     enabled: !!selectedBoard,
