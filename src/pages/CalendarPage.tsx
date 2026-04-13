@@ -436,7 +436,7 @@ export default function CalendarPage() {
             startTime: toLocalDatetime(selectedEvent.start_time),
             endTime: selectedEvent.end_time ? toLocalDatetime(selectedEvent.end_time) : "",
             eventType: selectedEvent.event_type || "personal",
-            imageUrl: selectedEvent.image_url || "",
+            imageUrl: selectedEvent.image_url_signed || selectedEvent.image_url || "",
           }}
         />
       )}
