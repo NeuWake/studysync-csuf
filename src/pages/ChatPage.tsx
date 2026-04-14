@@ -263,7 +263,43 @@ export default function ChatPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Send message (with optional file)
+  const validateAndSetFile = (file: File) => {
+    const maxMB = getMaxFileSize();
+    if (file.size > maxMB * 1024 * 1024) {
+      toast({ title: "File too large", description: `Max file size is ${maxMB}MB for ${selectedRoomData?.type === "group" ? "group chats" : "DMs"}.`, variant: "destructive" });
+      return;
+    }
+    setPendingFile(file);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) validateAndSetFile(file);
+  };
+
   const sendMutation = useMutation({
     mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
       if (!user || !selectedRoom) throw new Error("Not ready");
