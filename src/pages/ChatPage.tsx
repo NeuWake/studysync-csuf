@@ -59,6 +59,24 @@ export default function ChatPage() {
     shouldScrollRef.current = true;
   }, [selectedRoom]);
 
+  // Realtime subscription for invitation notifications
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`invitations:${user.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "chatroom_invitations",
+        filter: `invited_user_id=eq.${user.id}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ["chat-invitations-count"] });
+        queryClient.invalidateQueries({ queryKey: ["chat-invitations"] });
+      })
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [user, queryClient]);
+
   // Fetch chatrooms
   const { data: rooms = [], isLoading: roomsLoading } = useQuery({
     queryKey: ["chatrooms", user?.id],
