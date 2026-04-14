@@ -73,17 +73,19 @@ export default function AssignmentsPage() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: Status }) => {
+    mutationFn: async ({ id, status, currentProgress }: { id: string; status: Status; currentProgress?: number }) => {
       const update: any = { status };
       if (status === "completed") {
         update.progress = 100;
         update.completed_at = new Date().toISOString();
-      } else if (status === "in-progress") {
-        update.progress = 50;
+      } else if (status === "missed") {
         update.completed_at = null;
       } else {
-        update.progress = 0;
+        // Preserve existing progress for pending/in-progress
         update.completed_at = null;
+        if (status === "in-progress" && (currentProgress === undefined || currentProgress === 0)) {
+          update.progress = 10;
+        }
       }
       const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
       if (error) throw error;
