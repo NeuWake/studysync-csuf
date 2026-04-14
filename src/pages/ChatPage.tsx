@@ -82,6 +82,22 @@ export default function ChatPage() {
     enabled: !!user,
   });
 
+  // Fetch pending invitation count
+  const { data: pendingInviteCount = 0 } = useQuery({
+    queryKey: ["chat-invitations-count", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count, error } = await supabase
+        .from("chatroom_invitations")
+        .select("*", { count: "exact", head: true })
+        .eq("invited_user_id", user.id)
+        .eq("status", "pending");
+      if (error) return 0;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
   // Fetch messages with limit
   const { data: messages = [], isLoading: msgsLoading } = useQuery({
     queryKey: ["messages", selectedRoom, messageLimit],
