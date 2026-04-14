@@ -233,7 +233,7 @@ export default function ChatPage() {
       setNewChatName("");
       setInviteUsers([]);
       setDialogOpen(false);
-      toast({ title: "Chat created!" });
+      toast({ title: inviteUsers.length > 0 ? "Chat created! Invitations sent." : "Chat created!" });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
