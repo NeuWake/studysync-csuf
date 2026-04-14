@@ -54,8 +54,11 @@ export default function ChatPage() {
   const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
   const [hasMore, setHasMore] = useState(false);
   const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldScrollRef = useRef(true);
   const selectedRoomRef = useRef<string | null>(null);
 
