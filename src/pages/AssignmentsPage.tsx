@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2 } from "lucide-react";
+import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -156,6 +157,22 @@ export default function AssignmentsPage() {
     },
   });
 
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: async (userAssignmentId: string) => {
+      const { error } = await supabase.from("user_assignments").delete().eq("id", userAssignmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Assignment removed" });
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-assignments"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const courses = [...new Set(
     assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean)
   )];
@@ -280,6 +297,27 @@ export default function AssignmentsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove assignment?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will remove "{assign.title}" from your tracking list. The assignment itself won't be deleted.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteAssignmentMutation.mutate(a.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardContent>
