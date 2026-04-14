@@ -101,7 +101,29 @@ export default function AssignmentsPage() {
     },
   });
 
-  const createTaskMutation = useMutation({
+  const updateProgressMutation = useMutation({
+    mutationFn: async ({ id, progress }: { id: string; progress: number }) => {
+      const update: any = { progress };
+      if (progress === 100) {
+        update.status = "completed";
+        update.completed_at = new Date().toISOString();
+      } else if (progress > 0) {
+        update.status = "in-progress";
+        update.completed_at = null;
+      }
+      const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Progress update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
       const { data: assignment, error: aErr } = await supabase
