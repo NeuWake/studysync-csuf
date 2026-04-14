@@ -6,13 +6,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket } from "lucide-react";
+import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket, UserPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import WhiteboardMembersDialog from "@/components/whiteboard/WhiteboardMembersDialog";
 
 type Tool = "select" | "pen" | "rectangle" | "circle" | "line" | "eraser" | "text" | "triangle" | "diamond" | "arrow" | "star" | "hexagon";
 
@@ -112,6 +113,7 @@ export default function WhiteboardPage() {
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [boardDialogOpen, setBoardDialogOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
 
   // Drawing state
   const [activeTool, setActiveTool] = useState<Tool>("pen");
@@ -930,10 +932,15 @@ export default function WhiteboardPage() {
 
                 {/* Board info */}
                 <div className="ml-auto">
-                  <Badge variant="secondary">
-                    <Users className="h-3 w-3 mr-1" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setMembersDialogOpen(true)}
+                  >
+                    <Users className="h-3.5 w-3.5" />
                     {selectedBoardData?.whiteboard_members?.length || 0} members
-                  </Badge>
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1050,6 +1057,16 @@ export default function WhiteboardPage() {
             <p className="text-sm">to start drawing and collaborating</p>
           </CardContent>
         </Card>
+      )}
+
+      {selectedBoard && selectedBoardData && (
+        <WhiteboardMembersDialog
+          open={membersDialogOpen}
+          onOpenChange={setMembersDialogOpen}
+          whiteboardId={selectedBoard}
+          createdBy={selectedBoardData.created_by}
+          onLeft={() => setSelectedBoard(null)}
+        />
       )}
     </div>
   );
