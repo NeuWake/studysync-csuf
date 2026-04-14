@@ -30,12 +30,13 @@ export default function AuthPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const allowedOrigin = window.location.origin;
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${allowedOrigin}/dashboard`,
       },
     });
     if (error) {
@@ -49,8 +50,9 @@ export default function AuthPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const allowedOrigin = window.location.origin;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${allowedOrigin}/reset-password`,
     });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
