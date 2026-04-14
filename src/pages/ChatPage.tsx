@@ -55,7 +55,7 @@ export default function ChatPage() {
   const [inviteUsers, setInviteUsers] = useState<UserResult[]>([]);
   const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
   const [hasMore, setHasMore] = useState(false);
-  const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
+  
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -64,60 +64,18 @@ export default function ChatPage() {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldScrollRef = useRef(true);
-  const selectedRoomRef = useRef<string | null>(null);
+  
 
-  // Keep ref in sync with state so realtime callback sees latest value
-  useEffect(() => {
-    selectedRoomRef.current = selectedRoom;
-  }, [selectedRoom]);
 
   // Reset limit and clear unread when switching rooms
   useEffect(() => {
     setMessageLimit(MESSAGES_PER_PAGE);
     shouldScrollRef.current = true;
     if (selectedRoom) {
-      setUnreadRooms((prev) => {
-        const next = new Set(prev);
-        next.delete(selectedRoom);
-        return next;
-      });
+      markRoomRead(selectedRoom);
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, markRoomRead]);
 
-  // Global realtime subscription for unread indicators + toast notifications
-  useEffect(() => {
-    if (!user) return;
-    const globalChannel = supabase
-      .channel(`global-messages:${user.id}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-      }, (payload) => {
-        const newMsg = payload.new as any;
-        // Skip own messages
-        if (newMsg.user_id === user.id) return;
-        // Mark as unread if not currently viewing that room
-        if (newMsg.chatroom_id !== selectedRoomRef.current) {
-          setUnreadRooms((prev) => new Set(prev).add(newMsg.chatroom_id));
-          // Show toast notification
-          supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", newMsg.user_id)
-            .maybeSingle()
-            .then(({ data: profile }) => {
-              const senderName = profile?.full_name || "Someone";
-              toast({
-                title: `New message from ${senderName}`,
-                description: newMsg.content.length > 50 ? newMsg.content.slice(0, 50) + "…" : newMsg.content,
-              });
-            });
-        }
-      })
-      .subscribe();
-    return () => { globalChannel.unsubscribe(); };
-  }, [user, toast]);
 
   // Realtime subscription for invitation notifications
   useEffect(() => {
