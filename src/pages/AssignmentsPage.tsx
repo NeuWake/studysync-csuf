@@ -157,7 +157,23 @@ export default function AssignmentsPage() {
     },
   });
 
-  const courses = [...new Set(
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: async (userAssignmentId: string) => {
+      const { error } = await supabase.from("user_assignments").delete().eq("id", userAssignmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Assignment removed" });
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-assignments"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+
     assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean)
   )];
 
