@@ -538,7 +538,45 @@ export default function ChatPage() {
                                   {msg.profile?.full_name || "Unknown"}
                                 </p>
                               )}
-                              <p className="text-sm">{msg.content}</p>
+                              {msg.file_url && (
+                                <div className="mb-1">
+                                  {msg.file_type?.startsWith("image/") ? (
+                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                                      <img
+                                        src={msg.file_url}
+                                        alt={msg.file_name || "Image"}
+                                        className="max-w-full max-h-48 rounded-lg object-cover"
+                                        loading="lazy"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={msg.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center gap-2 p-2 rounded-lg border ${
+                                        isMe ? "border-primary-foreground/20 hover:bg-primary-foreground/10" : "border-border hover:bg-muted"
+                                      }`}
+                                    >
+                                      <FileText className="h-5 w-5 shrink-0" />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-medium truncate">{msg.file_name || "File"}</p>
+                                        {msg.file_size && (
+                                          <p className="text-[10px] opacity-70">
+                                            {msg.file_size < 1024 * 1024
+                                              ? `${(msg.file_size / 1024).toFixed(1)} KB`
+                                              : `${(msg.file_size / (1024 * 1024)).toFixed(1)} MB`}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Download className="h-4 w-4 shrink-0 opacity-60" />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                              {msg.content && !(msg.file_url && msg.content.startsWith("📎")) && (
+                                <p className="text-sm">{msg.content}</p>
+                              )}
                               <p className={`text-[10px] mt-1 ${isMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                 {formatTime(msg.sent_at)}
                               </p>
