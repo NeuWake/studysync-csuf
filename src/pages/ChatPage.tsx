@@ -446,8 +446,23 @@ export default function ChatPage() {
                 onOpenChange={setMembersOpen}
                 chatroomId={selectedRoom}
                 createdBy={selectedRoomData.created_by}
+                onLeft={() => setSelectedRoom(null)}
               />
             )}
+          </>
+        )}
+      </Card>
+
+      <ChatInvitationsDialog
+        open={invitationsOpen}
+        onOpenChange={(o) => {
+          setInvitationsOpen(o);
+          if (!o) {
+            queryClient.invalidateQueries({ queryKey: ["chat-invitations-count"] });
+            queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
+          }
+        }}
+      />
           </>
         )}
       </Card>
