@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, UserPlus, Crown } from "lucide-react";
+import { Loader2, UserPlus, Crown, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ interface ChatMembersDialogProps {
   onOpenChange: (open: boolean) => void;
   chatroomId: string;
   createdBy: string;
+  onLeft?: () => void;
 }
 
 interface UserResult {
@@ -23,7 +24,7 @@ interface UserResult {
   university: string | null;
 }
 
-export default function ChatMembersDialog({ open, onOpenChange, chatroomId, createdBy }: ChatMembersDialogProps) {
+export default function ChatMembersDialog({ open, onOpenChange, chatroomId, createdBy, onLeft }: ChatMembersDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,17 +48,44 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
     enabled: open && !!chatroomId,
   });
 
-  const addMembersMutation = useMutation({
+  // Send invitations instead of directly adding
+  const inviteMutation = useMutation({
     mutationFn: async () => {
-      if (!usersToAdd.length) return;
-      const inserts = usersToAdd.map((u) => ({ chatroom_id: chatroomId, user_id: u.user_id }));
-      const { error } = await supabase.from("chatroom_members").insert(inserts);
+      if (!usersToAdd.length || !user) return;
+      const inserts = usersToAdd.map((u) => ({
+        chatroom_id: chatroomId,
+        invited_by: user.id,
+        invited_user_id: u.user_id,
+      }));
+      const { error } = await supabase.from("chatroom_invitations").insert(inserts);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["chatroom-members", chatroomId] });
       setUsersToAdd([]);
-      toast({ title: "Members added!" });
+      toast({ title: "Invitations sent!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // Leave group
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("chatroom_members")
+        .delete()
+        .eq("chatroom_id", chatroomId)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
+      queryClient.invalidateQueries({ queryKey: ["chatroom-members", chatroomId] });
+      onOpenChange(false);
+      onLeft?.();
+      toast({ title: "You left the group" });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -66,6 +94,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
 
   const isOwner = user?.id === createdBy;
   const memberIds = new Set(members.map((m: any) => m.user_id));
+  const isMember = user ? memberIds.has(user.id) : false;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -96,7 +125,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
         {isOwner && (
           <div className="border-t border-border pt-3 space-y-3">
             <p className="text-sm font-medium text-foreground flex items-center gap-1">
-              <UserPlus className="h-4 w-4" /> Add Members
+              <UserPlus className="h-4 w-4" /> Invite Members
             </p>
             <UserSearchSelect
               selectedUsers={usersToAdd.filter((u) => !memberIds.has(u.user_id))}
@@ -109,13 +138,33 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
               <Button
                 size="sm"
                 className="w-full"
-                onClick={() => addMembersMutation.mutate()}
-                disabled={addMembersMutation.isPending}
+                onClick={() => inviteMutation.mutate()}
+                disabled={inviteMutation.isPending}
               >
-                {addMembersMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Add {usersToAdd.length} member{usersToAdd.length > 1 ? "s" : ""}
+                {inviteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Send {usersToAdd.length} invitation{usersToAdd.length > 1 ? "s" : ""}
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Leave Group - shown for all members except the creator */}
+        {isMember && !isOwner && (
+          <div className="border-t border-border pt-3">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full gap-2"
+              onClick={() => leaveMutation.mutate()}
+              disabled={leaveMutation.isPending}
+            >
+              {leaveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
+              Leave Group
+            </Button>
           </div>
         )}
       </DialogContent>
