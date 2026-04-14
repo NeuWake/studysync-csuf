@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import WhiteboardMembersDialog from "@/components/whiteboard/WhiteboardMembersDialog";
 
 type Tool = "select" | "pen" | "rectangle" | "circle" | "line" | "eraser" | "text" | "triangle" | "diamond" | "arrow" | "star" | "hexagon";
 
