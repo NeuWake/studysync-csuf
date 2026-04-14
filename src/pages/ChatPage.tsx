@@ -520,7 +520,22 @@ export default function ChatPage() {
       </Card>
 
       {/* Chat area */}
-      <Card className="flex-1 flex flex-col">
+      <Card
+        className="flex-1 flex flex-col relative"
+        onDragEnter={selectedRoom ? handleDragEnter : undefined}
+        onDragLeave={selectedRoom ? handleDragLeave : undefined}
+        onDragOver={selectedRoom ? handleDragOver : undefined}
+        onDrop={selectedRoom ? handleDrop : undefined}
+      >
+        {isDragging && selectedRoom && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-xl backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-2 text-primary">
+              <Paperclip className="h-10 w-10" />
+              <p className="text-sm font-medium">Drop file here to upload</p>
+              <p className="text-xs text-muted-foreground">Max {getMaxFileSize()}MB</p>
+            </div>
+          </div>
+        )}
         {!selectedRoom ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
             <MessageSquare className="h-12 w-12 mb-3 opacity-40" />
