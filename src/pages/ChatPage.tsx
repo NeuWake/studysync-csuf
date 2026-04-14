@@ -49,9 +49,16 @@ export default function ChatPage() {
   const [inviteUsers, setInviteUsers] = useState<UserResult[]>([]);
   const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
   const [hasMore, setHasMore] = useState(false);
+  const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const shouldScrollRef = useRef(true);
+  const selectedRoomRef = useRef<string | null>(null);
+
+  // Keep ref in sync with state so realtime callback sees latest value
+  useEffect(() => {
+    selectedRoomRef.current = selectedRoom;
+  }, [selectedRoom]);
 
   // Reset limit when switching rooms
   useEffect(() => {
