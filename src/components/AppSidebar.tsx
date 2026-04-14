@@ -9,11 +9,14 @@ import {
   Sun,
   Moon,
   LogOut,
+  Volume2,
+  VolumeOff,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useChatNotifications } from "@/contexts/ChatNotificationContext";
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +31,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -45,6 +49,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { signOut } = useAuth();
+  const { hasUnread, chimeMuted, toggleChimeMute } = useChatNotifications();
 
   return (
     <Sidebar collapsible="icon">
@@ -74,11 +79,14 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/dashboard"}
-                      className="hover:bg-sidebar-accent/50"
+                      className="hover:bg-sidebar-accent/50 relative"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
+                      {item.url === "/chat" && hasUnread && location.pathname !== "/chat" && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -90,6 +98,22 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
         <div className="flex flex-col gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size={collapsed ? "icon" : "default"}
+                onClick={toggleChimeMute}
+                className="w-full justify-start"
+              >
+                {chimeMuted ? <VolumeOff className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                {!collapsed && <span className="ml-2">{chimeMuted ? "Unmute Chime" : "Mute Chime"}</span>}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {chimeMuted ? "Unmute notification chime" : "Mute notification chime"}
+            </TooltipContent>
+          </Tooltip>
           <Button
             variant="ghost"
             size={collapsed ? "icon" : "default"}
