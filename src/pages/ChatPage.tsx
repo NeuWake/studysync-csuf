@@ -256,10 +256,19 @@ export default function ChatPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Messages</CardTitle>
-            <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setInviteUsers([]); setNewChatName(""); } }}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="relative" onClick={() => setInvitationsOpen(true)}>
+                <Bell className="h-4 w-4" />
+                {pendingInviteCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center">
+                    {pendingInviteCount}
+                  </span>
+                )}
+              </Button>
+              <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setInviteUsers([]); setNewChatName(""); } }}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>New Chat</DialogTitle></DialogHeader>
                 <div className="space-y-4 pt-2">
