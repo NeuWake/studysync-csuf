@@ -123,7 +123,7 @@ export default function AssignmentsPage() {
     },
   });
 
-
+  const createTaskMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
       const { data: assignment, error: aErr } = await supabase
