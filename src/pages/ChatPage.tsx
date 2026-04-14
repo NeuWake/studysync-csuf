@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus, ChevronUp, Bell, Paperclip, FileText, Image, Download, X } from "lucide-react";
+import { useChatNotifications } from "@/contexts/ChatNotificationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
