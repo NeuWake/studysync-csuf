@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket, UserPlus } from "lucide-react";
+import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket, UserPlus, Hand, ZoomIn, ZoomOut, Maximize2, Download } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import WhiteboardMembersDialog from "@/components/whiteboard/WhiteboardMembersDialog";
 
-type Tool = "select" | "pen" | "rectangle" | "circle" | "line" | "eraser" | "text" | "triangle" | "diamond" | "arrow" | "star" | "hexagon";
+type Tool = "select" | "pen" | "rectangle" | "circle" | "line" | "eraser" | "text" | "triangle" | "diamond" | "arrow" | "star" | "hexagon" | "hand";
 
 interface Stroke {
   id?: string;
@@ -33,6 +33,7 @@ interface Stroke {
 
 const toolIcons: Record<Tool, React.ElementType> = {
   select: MousePointer2,
+  hand: Hand,
   pen: Pencil,
   line: Minus,
   arrow: ArrowRight,
@@ -47,9 +48,7 @@ const toolIcons: Record<Tool, React.ElementType> = {
 };
 
 const fillColors = ["transparent", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#FFFFFF", "#000000"];
-
 const colors = ["#000000", "#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#FFFFFF"];
-
 const noteColorValues = ["#FEF3C7", "#DBEAFE", "#D1FAE5", "#FCE7F3", "#EDE9FE"];
 const noteColorClasses: Record<string, string> = {
   "#FEF3C7": "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700",
@@ -59,7 +58,10 @@ const noteColorClasses: Record<string, string> = {
   "#EDE9FE": "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700",
 };
 
-// Helper to check if a point is near a stroke for hit-testing
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 5;
+const MAX_EXPORT_BYTES = 20 * 1024 * 1024; // 20MB
+
 function hitTestStroke(stroke: Stroke, px: number, py: number, threshold = 8): boolean {
   if (stroke.tool === "pen" || stroke.tool === "eraser") {
     for (const [sx, sy] of stroke.points) {
@@ -75,7 +77,6 @@ function hitTestStroke(stroke: Stroke, px: number, py: number, threshold = 8): b
     const h = Math.max(stroke.strokeWidth * 5, 16) * 1.2;
     return px >= stroke.startX && px <= stroke.startX + w && py >= stroke.startY && py <= stroke.startY + h;
   }
-  // Bounding-box based shapes
   const minX = Math.min(stroke.startX, stroke.endX);
   const maxX = Math.max(stroke.startX, stroke.endX);
   const minY = Math.min(stroke.startY, stroke.endY);
@@ -105,6 +106,30 @@ function getResizeHandle(stroke: Stroke, px: number, py: number, padding = 4, ha
   return null;
 }
 
+function getStrokesBounds(strokes: Stroke[]): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  if (!strokes.length) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of strokes) {
+    if (s.tool === "pen" || s.tool === "eraser") {
+      for (const [x, y] of s.points) {
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      }
+    } else if (s.tool === "text" && s.text) {
+      minX = Math.min(minX, s.startX);
+      minY = Math.min(minY, s.startY);
+      maxX = Math.max(maxX, s.startX + s.text.length * Math.max(s.strokeWidth * 3, 10));
+      maxY = Math.max(maxY, s.startY + Math.max(s.strokeWidth * 5, 16) * 1.2);
+    } else {
+      minX = Math.min(minX, s.startX, s.endX);
+      minY = Math.min(minY, s.startY, s.endY);
+      maxX = Math.max(maxX, s.startX, s.endX);
+      maxY = Math.max(maxY, s.startY, s.endY);
+    }
+  }
+  return { minX: minX - 40, minY: minY - 40, maxX: maxX + 40, maxY: maxY + 40 };
+}
+
 export default function WhiteboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -129,8 +154,14 @@ export default function WhiteboardPage() {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const suppressRefetchRef = useRef(false);
-  const [resizeHandle, setResizeHandle] = useState<string | null>(null); // "tl" | "tr" | "bl" | "br" | null
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [resizeOrigin, setResizeOrigin] = useState<{ fixedX: number; fixedY: number } | null>(null);
+
+  // Pan/Zoom state (infinite canvas)
+  const [camera, setCamera] = useState({ x: 0, y: 0, scale: 1 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const spaceDownRef = useRef(false);
 
   // Sticky notes
   const [showNotes, setShowNotes] = useState(false);
@@ -143,6 +174,15 @@ export default function WhiteboardPage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // --- Coordinate conversion ---
+  const screenToWorld = useCallback((sx: number, sy: number): [number, number] => {
+    return [(sx - camera.x) / camera.scale, (sy - camera.y) / camera.scale];
+  }, [camera]);
+
+  const worldToScreen = useCallback((wx: number, wy: number): [number, number] => {
+    return [wx * camera.scale + camera.x, wy * camera.scale + camera.y];
+  }, [camera]);
 
   // Fetch boards
   const { data: boards = [], isLoading: boardsLoading } = useQuery({
@@ -239,6 +279,24 @@ export default function WhiteboardPage() {
     return () => { channel.unsubscribe(); };
   }, [selectedBoard, queryClient]);
 
+  // Space key for panning
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !textInput.visible) {
+        e.preventDefault();
+        spaceDownRef.current = true;
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        spaceDownRef.current = false;
+      }
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, [textInput.visible]);
+
   // --- Canvas rendering ---
   const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke, isSelected = false) => {
     ctx.strokeStyle = stroke.tool === "eraser" ? "#FFFFFF" : stroke.color;
@@ -261,12 +319,10 @@ export default function WhiteboardPage() {
       ctx.lineTo(stroke.endX, stroke.endY);
       ctx.stroke();
     } else if (stroke.tool === "arrow") {
-      // Draw line
       ctx.beginPath();
       ctx.moveTo(stroke.startX, stroke.startY);
       ctx.lineTo(stroke.endX, stroke.endY);
       ctx.stroke();
-      // Arrowhead
       const angle = Math.atan2(stroke.endY - stroke.startY, stroke.endX - stroke.startX);
       const headLen = Math.max(stroke.strokeWidth * 4, 12);
       ctx.beginPath();
@@ -388,7 +444,6 @@ export default function WhiteboardPage() {
         bh = Math.abs(stroke.endY - stroke.startY) + 8;
       }
       ctx.strokeRect(bx, by, bw, bh);
-      // Draw resize handles (corners)
       ctx.setLineDash([]);
       ctx.fillStyle = "#FFFFFF";
       ctx.strokeStyle = "#3B82F6";
@@ -406,16 +461,52 @@ export default function WhiteboardPage() {
     }
   }, []);
 
+  // Draw infinite dot grid
+  const drawGrid = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const gridSize = 30;
+    const dotRadius = 1;
+
+    // World coords of canvas corners
+    const [wx0, wy0] = [(0 - camera.x) / camera.scale, (0 - camera.y) / camera.scale];
+    const [wx1, wy1] = [(width - camera.x) / camera.scale, (height - camera.y) / camera.scale];
+
+    const startX = Math.floor(wx0 / gridSize) * gridSize;
+    const startY = Math.floor(wy0 / gridSize) * gridSize;
+
+    ctx.fillStyle = "#d4d4d8";
+    for (let wx = startX; wx <= wx1; wx += gridSize) {
+      for (let wy = startY; wy <= wy1; wy += gridSize) {
+        ctx.beginPath();
+        ctx.arc(wx, wy, dotRadius / camera.scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }, [camera]);
+
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.fillStyle = "#FFFFFF";
+
+    // Clear with identity transform
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#FAFAFA";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Apply camera transform
+    ctx.setTransform(camera.scale, 0, 0, camera.scale, camera.x, camera.y);
+
+    // Draw grid
+    drawGrid(ctx, canvas.width, canvas.height);
+
+    // Draw strokes in world space
     localStrokes.forEach((s, i) => drawStroke(ctx, s, i === selectedStrokeIndex));
     if (currentStroke) drawStroke(ctx, currentStroke);
-  }, [localStrokes, currentStroke, drawStroke, selectedStrokeIndex]);
+
+    // Reset transform
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }, [localStrokes, currentStroke, drawStroke, selectedStrokeIndex, camera, drawGrid]);
 
   useEffect(() => {
     redrawCanvas();
@@ -437,8 +528,40 @@ export default function WhiteboardPage() {
     return () => window.removeEventListener("resize", resize);
   }, [selectedBoard, redrawCanvas]);
 
+  // --- Wheel zoom ---
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      setCamera((prev) => {
+        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev.scale * zoomFactor));
+        const ratio = newScale / prev.scale;
+        return {
+          scale: newScale,
+          x: mx - ratio * (mx - prev.x),
+          y: my - ratio * (my - prev.y),
+        };
+      });
+    };
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  }, []);
+
   // --- Drawing handlers ---
-  const getPos = (e: React.MouseEvent<HTMLCanvasElement>): [number, number] => {
+  const getWorldPos = (e: React.MouseEvent<HTMLCanvasElement>): [number, number] => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    return screenToWorld(sx, sy);
+  };
+
+  const getScreenPos = (e: React.MouseEvent<HTMLCanvasElement>): [number, number] => {
     const rect = canvasRef.current!.getBoundingClientRect();
     return [e.clientX - rect.left, e.clientY - rect.top];
   };
@@ -446,16 +569,23 @@ export default function WhiteboardPage() {
   const textJustOpenedRef = useRef(false);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const [x, y] = getPos(e);
+    // Pan with middle mouse, space key, or hand tool
+    if (e.button === 1 || spaceDownRef.current || activeTool === "hand") {
+      e.preventDefault();
+      const [sx, sy] = getScreenPos(e);
+      setIsPanning(true);
+      setPanStart({ x: sx, y: sy, cx: camera.x, cy: camera.y });
+      return;
+    }
+
+    const [x, y] = getWorldPos(e);
 
     if (activeTool === "select") {
-      // Check if clicking on a resize handle of the already-selected stroke
       if (selectedStrokeIndex !== null) {
         const s = localStrokes[selectedStrokeIndex];
         const handle = getResizeHandle(s, x, y);
         if (handle) {
           setResizeHandle(handle);
-          // The fixed corner is the opposite of the handle being dragged
           const minX = Math.min(s.startX, s.endX);
           const maxX = Math.max(s.startX, s.endX);
           const minY = Math.min(s.startY, s.endY);
@@ -466,8 +596,6 @@ export default function WhiteboardPage() {
           return;
         }
       }
-
-      // Find topmost stroke under cursor (reverse order)
       for (let i = localStrokes.length - 1; i >= 0; i--) {
         if (hitTestStroke(localStrokes[i], x, y)) {
           setSelectedStrokeIndex(i);
@@ -491,7 +619,9 @@ export default function WhiteboardPage() {
       e.preventDefault();
       e.stopPropagation();
       textJustOpenedRef.current = true;
-      setTextInput({ x, y, visible: true });
+      // Position text input in screen coords
+      const [sx, sy] = worldToScreen(x, y);
+      setTextInput({ x: sx, y: sy, visible: true });
       setTextValue("");
       setTimeout(() => {
         textInputRef.current?.focus();
@@ -499,6 +629,9 @@ export default function WhiteboardPage() {
       }, 100);
       return;
     }
+
+    if (activeTool === "hand") return;
+
     setIsDrawing(true);
     if (activeTool === "pen" || activeTool === "eraser") {
       setCurrentStroke({ tool: activeTool, points: [[x, y]], color: activeColor, fillColor: null, strokeWidth, startX: 0, startY: 0, endX: 0, endY: 0 });
@@ -513,13 +646,15 @@ export default function WhiteboardPage() {
       setTextValue("");
       return;
     }
+    // Convert screen position back to world coords for storage
+    const [wx, wy] = screenToWorld(textInput.x, textInput.y);
     const textStroke: Stroke = {
       tool: "text",
       points: [],
       color: activeColor,
       strokeWidth,
-      startX: textInput.x,
-      startY: textInput.y,
+      startX: wx,
+      startY: wy,
       endX: 0,
       endY: 0,
       text: textValue.trim(),
@@ -535,15 +670,26 @@ export default function WhiteboardPage() {
       points: [textValue.trim()] as any,
       color: activeColor,
       stroke_width: strokeWidth,
-      start_x: textInput.x,
-      start_y: textInput.y,
+      start_x: wx,
+      start_y: wy,
       end_x: 0,
       end_y: 0,
     });
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const [x, y] = getPos(e);
+    // Handle panning
+    if (isPanning && panStart) {
+      const [sx, sy] = getScreenPos(e);
+      setCamera((prev) => ({
+        ...prev,
+        x: panStart.cx + (sx - panStart.x),
+        y: panStart.cy + (sy - panStart.y),
+      }));
+      return;
+    }
+
+    const [x, y] = getWorldPos(e);
 
     // Handle resizing selected stroke
     if (activeTool === "select" && resizeHandle && resizeOrigin && selectedStrokeIndex !== null) {
@@ -594,6 +740,13 @@ export default function WhiteboardPage() {
   };
 
   const handleMouseUp = async () => {
+    // End panning
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(null);
+      return;
+    }
+
     // Handle resize end
     if (activeTool === "select" && resizeHandle && selectedStrokeIndex !== null) {
       setResizeHandle(null);
@@ -663,18 +816,16 @@ export default function WhiteboardPage() {
     } as any);
   };
 
-  // Clear board (delete all user's strokes)
+  // Clear board
   const clearMutation = useMutation({
     mutationFn: async () => {
       if (!user || !selectedBoard) return;
       await supabase.from("whiteboard_strokes").delete().eq("whiteboard_id", selectedBoard).eq("user_id", user.id);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] }),
   });
 
-  // Undo last stroke
+  // Undo
   const undoMutation = useMutation({
     mutationFn: async () => {
       if (!user || !localStrokes.length) return;
@@ -685,13 +836,9 @@ export default function WhiteboardPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1);
-      if (data?.[0]) {
-        await supabase.from("whiteboard_strokes").delete().eq("id", data[0].id);
-      }
+      if (data?.[0]) await supabase.from("whiteboard_strokes").delete().eq("id", data[0].id);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whiteboard-strokes", selectedBoard] }),
   });
 
   // Create board
@@ -717,9 +864,7 @@ export default function WhiteboardPage() {
       setBoardDialogOpen(false);
       toast({ title: "Board created!" });
     },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   // Add sticky note
@@ -754,9 +899,7 @@ export default function WhiteboardPage() {
     const s = localStrokes[selectedStrokeIndex];
     setLocalStrokes((prev) => prev.filter((_, i) => i !== selectedStrokeIndex));
     setSelectedStrokeIndex(null);
-    if (s.id) {
-      await supabase.from("whiteboard_strokes").delete().eq("id", s.id);
-    }
+    if (s.id) await supabase.from("whiteboard_strokes").delete().eq("id", s.id);
   };
 
   // Keyboard handler for delete
@@ -771,9 +914,108 @@ export default function WhiteboardPage() {
     return () => window.removeEventListener("keydown", handler);
   });
 
+  // --- Zoom controls ---
+  const zoomIn = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    setCamera((prev) => {
+      const newScale = Math.min(MAX_SCALE, prev.scale * 1.25);
+      const ratio = newScale / prev.scale;
+      return { scale: newScale, x: cx - ratio * (cx - prev.x), y: cy - ratio * (cy - prev.y) };
+    });
+  };
+
+  const zoomOut = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    setCamera((prev) => {
+      const newScale = Math.max(MIN_SCALE, prev.scale * 0.8);
+      const ratio = newScale / prev.scale;
+      return { scale: newScale, x: cx - ratio * (cx - prev.x), y: cy - ratio * (cy - prev.y) };
+    });
+  };
+
+  const fitToContent = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !localStrokes.length) {
+      setCamera({ x: 0, y: 0, scale: 1 });
+      return;
+    }
+    const bounds = getStrokesBounds(localStrokes);
+    if (!bounds) { setCamera({ x: 0, y: 0, scale: 1 }); return; }
+    const bw = bounds.maxX - bounds.minX;
+    const bh = bounds.maxY - bounds.minY;
+    const scale = Math.min(canvas.width / bw, canvas.height / bh, 2);
+    const x = (canvas.width - bw * scale) / 2 - bounds.minX * scale;
+    const y = (canvas.height - bh * scale) / 2 - bounds.minY * scale;
+    setCamera({ x, y, scale });
+  };
+
+  // --- Export ---
+  const handleExport = () => {
+    if (!localStrokes.length) {
+      toast({ title: "Nothing to export", description: "Draw something first!" });
+      return;
+    }
+    const bounds = getStrokesBounds(localStrokes);
+    if (!bounds) return;
+
+    const bw = bounds.maxX - bounds.minX;
+    const bh = bounds.maxY - bounds.minY;
+
+    // Try full resolution first, then scale down if too large
+    let scale = 2; // 2x for retina quality
+    let attempts = 0;
+    let dataUrl = "";
+
+    while (attempts < 5) {
+      const w = Math.ceil(bw * scale);
+      const h = Math.ceil(bh * scale);
+
+      // Safety: cap at 8192px
+      if (w > 8192 || h > 8192) { scale *= 0.7; attempts++; continue; }
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = w;
+      offscreen.height = h;
+      const ctx = offscreen.getContext("2d");
+      if (!ctx) return;
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, w, h);
+      ctx.setTransform(scale, 0, 0, scale, -bounds.minX * scale, -bounds.minY * scale);
+      localStrokes.forEach((s) => drawStroke(ctx, s));
+
+      dataUrl = offscreen.toDataURL("image/png");
+      const sizeBytes = Math.ceil((dataUrl.length - 22) * 3 / 4);
+
+      if (sizeBytes <= MAX_EXPORT_BYTES) break;
+
+      // Too large - reduce scale
+      scale *= 0.7;
+      attempts++;
+    }
+
+    if (!dataUrl) {
+      toast({ title: "Export failed", description: "Content is too large to export within 20MB.", variant: "destructive" });
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.download = `whiteboard-${Date.now()}.png`;
+    link.href = dataUrl;
+    link.click();
+    toast({ title: "Exported!", description: "Whiteboard saved as PNG." });
+  };
+
   const selectedBoardData = boards.find((b: any) => b.id === selectedBoard);
 
   const getCursor = () => {
+    if (isPanning || activeTool === "hand" || spaceDownRef.current) return "cursor-grab";
     if (activeTool === "select") {
       if (resizeHandle) return "cursor-nwse-resize";
       return "cursor-default";
@@ -820,7 +1062,7 @@ export default function WhiteboardPage() {
           boards.map((board: any) => (
             <button
               key={board.id}
-              onClick={() => setSelectedBoard(board.id)}
+              onClick={() => { setSelectedBoard(board.id); setCamera({ x: 0, y: 0, scale: 1 }); }}
               className={`flex-shrink-0 p-3 rounded-lg border transition-colors ${
                 selectedBoard === board.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
               }`}
@@ -928,6 +1170,9 @@ export default function WhiteboardPage() {
                   >
                     <StickyNote className="h-4 w-4" />
                   </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleExport} title="Export as PNG (max 20MB)">
+                    <Download className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 {/* Board info */}
@@ -952,8 +1197,8 @@ export default function WhiteboardPage() {
               <CardContent className="p-0">
                 <div
                   ref={containerRef}
-                  className="relative w-full bg-white rounded-lg overflow-hidden"
-                  style={{ height: "calc(100vh - 320px)", minHeight: "400px" }}
+                  className="relative w-full rounded-lg overflow-hidden"
+                  style={{ height: "calc(100vh - 320px)", minHeight: "400px", backgroundColor: "#FAFAFA" }}
                 >
                   {strokesLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -985,12 +1230,29 @@ export default function WhiteboardPage() {
                         }}
                         onBlur={() => { if (!textJustOpenedRef.current) commitText(); }}
                         className="bg-transparent border-b-2 border-primary outline-none text-black px-1"
-                        style={{ fontSize: `${Math.max(strokeWidth * 5, 16)}px`, color: activeColor, minWidth: "100px" }}
+                        style={{ fontSize: `${Math.max(strokeWidth * 5, 16) * camera.scale}px`, color: activeColor, minWidth: "100px" }}
                         placeholder="Type here..."
                         autoFocus
                       />
                     </div>
                   )}
+
+                  {/* Zoom controls overlay */}
+                  <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-lg border border-border p-1 shadow-sm">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={zoomOut} title="Zoom out">
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground w-12 text-center font-mono">
+                      {Math.round(camera.scale * 100)}%
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={zoomIn} title="Zoom in">
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                    <div className="w-px h-5 bg-border" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fitToContent} title="Fit to content">
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
