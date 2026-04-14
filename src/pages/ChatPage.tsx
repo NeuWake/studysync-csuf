@@ -242,26 +242,77 @@ export default function ChatPage() {
     setMessageLimit((prev) => prev + MESSAGES_PER_PAGE);
   }, []);
 
-  // Send message
+  // File size limits
+  const getMaxFileSize = () => {
+    if (!selectedRoomData) return 50;
+    return selectedRoomData.type === "group" ? 100 : 50;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxMB = getMaxFileSize();
+    if (file.size > maxMB * 1024 * 1024) {
+      toast({ title: "File too large", description: `Max file size is ${maxMB}MB for ${selectedRoomData?.type === "group" ? "group chats" : "DMs"}.`, variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setPendingFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Send message (with optional file)
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
       if (!user || !selectedRoom) throw new Error("Not ready");
+
+      let fileUrl: string | null = null;
+      let fileName: string | null = null;
+      let fileSize: number | null = null;
+      let fileType: string | null = null;
+
+      if (file) {
+        setUploading(true);
+        const ext = file.name.split(".").pop() || "bin";
+        const path = `${selectedRoom}/${user.id}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("chat-files")
+          .upload(path, file);
+        setUploading(false);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("chat-files").getPublicUrl(path);
+        fileUrl = urlData.publicUrl;
+        fileName = file.name;
+        fileSize = file.size;
+        fileType = file.type;
+      }
+
+      const msgContent = content || (fileName ? `📎 ${fileName}` : "");
       const { error } = await supabase.from("messages").insert({
-        chatroom_id: selectedRoom, user_id: user.id, content,
-      });
+        chatroom_id: selectedRoom,
+        user_id: user.id,
+        content: msgContent,
+        file_url: fileUrl,
+        file_name: fileName,
+        file_size: fileSize,
+        file_type: fileType,
+      } as any);
       if (error) throw error;
     },
     onError: (err: any) => {
+      setUploading(false);
       toast({ title: "Failed to send", description: err.message, variant: "destructive" });
     },
   });
 
   const handleSend = () => {
     const text = message.trim();
-    if (!text) return;
+    if (!text && !pendingFile) return;
     setMessage("");
+    const file = pendingFile;
+    setPendingFile(null);
     shouldScrollRef.current = true;
-    sendMutation.mutate(text);
+    sendMutation.mutate({ content: text, file });
   };
 
   // Create chatroom with invitations (not direct add)
