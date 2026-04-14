@@ -113,6 +113,7 @@ export default function WhiteboardPage() {
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [boardDialogOpen, setBoardDialogOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
 
   // Drawing state
   const [activeTool, setActiveTool] = useState<Tool>("pen");
