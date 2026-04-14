@@ -190,7 +190,7 @@ export default function ChatPage() {
     sendMutation.mutate(text);
   };
 
-  // Create chatroom with invited users
+  // Create chatroom with invitations (not direct add)
   const createRoomMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
@@ -206,13 +206,25 @@ export default function ChatPage() {
         .single();
       if (error) throw error;
 
-      // Add creator + invited users as members
-      const memberInserts = [
-        { chatroom_id: room.id, user_id: user.id },
-        ...inviteUsers.map((u) => ({ chatroom_id: room.id, user_id: u.user_id })),
-      ];
-      const { error: memErr } = await supabase.from("chatroom_members").insert(memberInserts);
+      // Add only the creator as a member
+      const { error: memErr } = await supabase
+        .from("chatroom_members")
+        .insert({ chatroom_id: room.id, user_id: user.id });
       if (memErr) throw memErr;
+
+      // Send invitations to selected users
+      if (inviteUsers.length > 0) {
+        const invitations = inviteUsers.map((u) => ({
+          chatroom_id: room.id,
+          invited_by: user.id,
+          invited_user_id: u.user_id,
+        }));
+        const { error: invErr } = await supabase
+          .from("chatroom_invitations")
+          .insert(invitations);
+        if (invErr) throw invErr;
+      }
+
       return room;
     },
     onSuccess: (room) => {
