@@ -590,7 +590,36 @@ export default function ChatPage() {
               )}
             </div>
             <div className="p-4 border-t border-border">
+              {pendingFile && (
+                <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted text-sm">
+                  <Paperclip className="h-4 w-4 text-primary shrink-0" />
+                  <span className="truncate flex-1">{pendingFile.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {pendingFile.size < 1024 * 1024
+                      ? `${(pendingFile.size / 1024).toFixed(1)} KB`
+                      : `${(pendingFile.size / (1024 * 1024)).toFixed(1)} MB`}
+                  </span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPendingFile(null)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
               <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title={`Attach file (max ${getMaxFileSize()}MB)`}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <Input
                   placeholder="Type a message..."
                   value={message}
@@ -600,8 +629,12 @@ export default function ChatPage() {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
                   }}
                 />
-                <Button size="icon" onClick={handleSend} disabled={!message.trim() || sendMutation.isPending}>
-                  <Send className="h-4 w-4" />
+                <Button
+                  size="icon"
+                  onClick={handleSend}
+                  disabled={(!message.trim() && !pendingFile) || sendMutation.isPending || uploading}
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
