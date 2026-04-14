@@ -864,6 +864,28 @@ export default function WhiteboardPage() {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  // Delete board
+  const deleteBoardMutation = useMutation({
+    mutationFn: async (boardId: string) => {
+      if (!user) throw new Error("Not authenticated");
+      // Delete all strokes, notes, and members first, then the board
+      await supabase.from("whiteboard_strokes").delete().eq("whiteboard_id", boardId);
+      await supabase.from("whiteboard_notes").delete().eq("whiteboard_id", boardId);
+      await supabase.from("whiteboard_members").delete().eq("whiteboard_id", boardId);
+      const { error } = await supabase.from("whiteboards").delete().eq("id", boardId);
+      if (error) throw error;
+    },
+    onSuccess: (_, boardId) => {
+      queryClient.invalidateQueries({ queryKey: ["whiteboards"] });
+      if (selectedBoard === boardId) {
+        setSelectedBoard(null);
+        setLocalStrokes([]);
+      }
+      toast({ title: "Board deleted" });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   // Add sticky note
   const addNoteMutation = useMutation({
     mutationFn: async () => {
