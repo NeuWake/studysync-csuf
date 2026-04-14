@@ -23,6 +23,10 @@ interface Message {
   user_id: string;
   content: string;
   sent_at: string;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
   profile?: { full_name: string | null } | null;
 }
 
