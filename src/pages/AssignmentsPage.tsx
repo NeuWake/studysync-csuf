@@ -173,7 +173,7 @@ export default function AssignmentsPage() {
     },
   });
 
-
+  const courses = [...new Set(
     assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean)
   )];
 
