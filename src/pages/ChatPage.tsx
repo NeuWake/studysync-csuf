@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import UserSearchSelect from "@/components/chat/UserSearchSelect";
 import ChatMembersDialog from "@/components/chat/ChatMembersDialog";
+import ChatInvitationsDialog from "@/components/chat/ChatInvitationsDialog";
 
 interface Message {
   id: string;
