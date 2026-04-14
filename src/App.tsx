@@ -45,7 +45,7 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <ChatNotificationProvider>
-          <Toaster />
+          <TooltipProvider>
           <Sonner />
           <BrowserRouter>
             <Routes>
@@ -64,6 +64,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </TooltipProvider>
         </ChatNotificationProvider>
       </AuthProvider>
     </ThemeProvider>
