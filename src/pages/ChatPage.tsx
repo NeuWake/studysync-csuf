@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus, ChevronUp, Bell } from "lucide-react";
+import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus, ChevronUp, Bell, Paperclip, FileText, Image, Download, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,10 @@ interface Message {
   user_id: string;
   content: string;
   sent_at: string;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
   profile?: { full_name: string | null } | null;
 }
 
@@ -50,8 +54,11 @@ export default function ChatPage() {
   const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
   const [hasMore, setHasMore] = useState(false);
   const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldScrollRef = useRef(true);
   const selectedRoomRef = useRef<string | null>(null);
 
@@ -235,26 +242,77 @@ export default function ChatPage() {
     setMessageLimit((prev) => prev + MESSAGES_PER_PAGE);
   }, []);
 
-  // Send message
+  // File size limits
+  const getMaxFileSize = () => {
+    if (!selectedRoomData) return 50;
+    return selectedRoomData.type === "group" ? 100 : 50;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxMB = getMaxFileSize();
+    if (file.size > maxMB * 1024 * 1024) {
+      toast({ title: "File too large", description: `Max file size is ${maxMB}MB for ${selectedRoomData?.type === "group" ? "group chats" : "DMs"}.`, variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setPendingFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Send message (with optional file)
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, file }: { content: string; file?: File | null }) => {
       if (!user || !selectedRoom) throw new Error("Not ready");
+
+      let fileUrl: string | null = null;
+      let fileName: string | null = null;
+      let fileSize: number | null = null;
+      let fileType: string | null = null;
+
+      if (file) {
+        setUploading(true);
+        const ext = file.name.split(".").pop() || "bin";
+        const path = `${selectedRoom}/${user.id}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("chat-files")
+          .upload(path, file);
+        setUploading(false);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("chat-files").getPublicUrl(path);
+        fileUrl = urlData.publicUrl;
+        fileName = file.name;
+        fileSize = file.size;
+        fileType = file.type;
+      }
+
+      const msgContent = content || (fileName ? `📎 ${fileName}` : "");
       const { error } = await supabase.from("messages").insert({
-        chatroom_id: selectedRoom, user_id: user.id, content,
-      });
+        chatroom_id: selectedRoom,
+        user_id: user.id,
+        content: msgContent,
+        file_url: fileUrl,
+        file_name: fileName,
+        file_size: fileSize,
+        file_type: fileType,
+      } as any);
       if (error) throw error;
     },
     onError: (err: any) => {
+      setUploading(false);
       toast({ title: "Failed to send", description: err.message, variant: "destructive" });
     },
   });
 
   const handleSend = () => {
     const text = message.trim();
-    if (!text) return;
+    if (!text && !pendingFile) return;
     setMessage("");
+    const file = pendingFile;
+    setPendingFile(null);
     shouldScrollRef.current = true;
-    sendMutation.mutate(text);
+    sendMutation.mutate({ content: text, file });
   };
 
   // Create chatroom with invitations (not direct add)
@@ -480,7 +538,45 @@ export default function ChatPage() {
                                   {msg.profile?.full_name || "Unknown"}
                                 </p>
                               )}
-                              <p className="text-sm">{msg.content}</p>
+                              {msg.file_url && (
+                                <div className="mb-1">
+                                  {msg.file_type?.startsWith("image/") ? (
+                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                                      <img
+                                        src={msg.file_url}
+                                        alt={msg.file_name || "Image"}
+                                        className="max-w-full max-h-48 rounded-lg object-cover"
+                                        loading="lazy"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={msg.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center gap-2 p-2 rounded-lg border ${
+                                        isMe ? "border-primary-foreground/20 hover:bg-primary-foreground/10" : "border-border hover:bg-muted"
+                                      }`}
+                                    >
+                                      <FileText className="h-5 w-5 shrink-0" />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-medium truncate">{msg.file_name || "File"}</p>
+                                        {msg.file_size && (
+                                          <p className="text-[10px] opacity-70">
+                                            {msg.file_size < 1024 * 1024
+                                              ? `${(msg.file_size / 1024).toFixed(1)} KB`
+                                              : `${(msg.file_size / (1024 * 1024)).toFixed(1)} MB`}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Download className="h-4 w-4 shrink-0 opacity-60" />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                              {msg.content && !(msg.file_url && msg.content.startsWith("📎")) && (
+                                <p className="text-sm">{msg.content}</p>
+                              )}
                               <p className={`text-[10px] mt-1 ${isMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                 {formatTime(msg.sent_at)}
                               </p>
@@ -494,7 +590,36 @@ export default function ChatPage() {
               )}
             </div>
             <div className="p-4 border-t border-border">
+              {pendingFile && (
+                <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted text-sm">
+                  <Paperclip className="h-4 w-4 text-primary shrink-0" />
+                  <span className="truncate flex-1">{pendingFile.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {pendingFile.size < 1024 * 1024
+                      ? `${(pendingFile.size / 1024).toFixed(1)} KB`
+                      : `${(pendingFile.size / (1024 * 1024)).toFixed(1)} MB`}
+                  </span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPendingFile(null)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
               <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title={`Attach file (max ${getMaxFileSize()}MB)`}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <Input
                   placeholder="Type a message..."
                   value={message}
@@ -504,8 +629,12 @@ export default function ChatPage() {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
                   }}
                 />
-                <Button size="icon" onClick={handleSend} disabled={!message.trim() || sendMutation.isPending}>
-                  <Send className="h-4 w-4" />
+                <Button
+                  size="icon"
+                  onClick={handleSend}
+                  disabled={(!message.trim() && !pendingFile) || sendMutation.isPending || uploading}
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
