@@ -1079,19 +1079,38 @@ export default function WhiteboardPage() {
           <p className="text-sm text-muted-foreground">No boards yet. Create one to get started!</p>
         ) : (
           boards.map((board: any) => (
-            <button
+            <div
               key={board.id}
-              onClick={() => { setSelectedBoard(board.id); setCamera({ x: 0, y: 0, scale: 1 }); }}
-              className={`flex-shrink-0 p-3 rounded-lg border transition-colors ${
+              className={`flex-shrink-0 p-3 rounded-lg border transition-colors relative group ${
                 selectedBoard === board.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
               }`}
             >
-              <p className="text-sm font-medium text-foreground">{board.name}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <Users className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{board.whiteboard_members?.length || 0}/{board.max_users || 5}</span>
-              </div>
-            </button>
+              <button
+                onClick={() => { setSelectedBoard(board.id); setCamera({ x: 0, y: 0, scale: 1 }); }}
+                className="text-left w-full"
+              >
+                <p className="text-sm font-medium text-foreground pr-6">{board.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Users className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{board.whiteboard_members?.length || 0}/{board.max_users || 5}</span>
+                </div>
+              </button>
+              {board.created_by === user?.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Delete "${board.name}"? This cannot be undone.`)) {
+                      deleteBoardMutation.mutate(board.id);
+                    }
+                  }}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-destructive"
+                  title="Delete board"
+                  disabled={deleteBoardMutation.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           ))
         )}
       </div>
