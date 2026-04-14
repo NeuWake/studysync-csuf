@@ -1273,7 +1273,7 @@ export default function WhiteboardPage() {
                           if (e.key === "Escape") { setTextInput({ x: 0, y: 0, visible: false }); setTextValue(""); }
                         }}
                         onBlur={() => { if (!textJustOpenedRef.current) commitText(); }}
-                        className="bg-transparent border-b-2 border-primary outline-none text-black px-1"
+                        className="bg-transparent border-b-2 border-primary outline-none text-foreground px-1"
                         style={{ fontSize: `${Math.max(strokeWidth * 5, 16) * camera.scale}px`, color: activeColor, minWidth: "100px" }}
                         placeholder="Type here..."
                         autoFocus

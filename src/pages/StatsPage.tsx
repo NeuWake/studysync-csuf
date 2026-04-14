@@ -169,7 +169,7 @@ export default function StatsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" className="text-xs" />
                 <YAxis className="text-xs" />
-                <Tooltip />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
                 <Bar dataKey="completed" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="missed" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -188,7 +188,7 @@ export default function StatsPage() {
                       <Cell key={index} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -205,7 +205,7 @@ export default function StatsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="day" className="text-xs" />
                 <YAxis className="text-xs" />
-                <Tooltip />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
                 <Bar dataKey="tasks" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -220,7 +220,7 @@ export default function StatsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="week" className="text-xs" />
                 <YAxis className="text-xs" />
-                <Tooltip />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
                 <Line type="monotone" dataKey="avgHours" stroke="hsl(25, 95%, 53%)" strokeWidth={2} dot={{ fill: "hsl(25, 95%, 53%)" }} />
               </LineChart>
             </ResponsiveContainer>

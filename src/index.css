@@ -128,3 +128,18 @@
     background: linear-gradient(135deg, hsl(25, 95%, 53%), hsl(217, 91%, 60%));
   }
 }
+
+/* Recharts dark mode theming */
+.recharts-cartesian-grid line {
+  stroke: hsl(var(--border));
+}
+.recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--muted-foreground));
+}
+.recharts-default-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+.recharts-tooltip-item {
+  color: hsl(var(--card-foreground)) !important;
+}

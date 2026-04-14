@@ -308,7 +308,7 @@ export default function CalendarPage() {
                             {dayItems.slice(0, 3).map((item, j) => (
                               <div
                                 key={j}
-                                className={`text-[10px] rounded px-1 truncate text-white ${item.eventId ? "cursor-pointer" : ""}`}
+                                className={`text-[10px] rounded px-1 truncate ${item.eventId ? "cursor-pointer" : ""}`}
                                 onClick={(e) => {
                                   if (item.eventId && item.raw) {
                                     e.stopPropagation();
