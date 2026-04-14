@@ -412,6 +412,9 @@ export default function ChatPage() {
                       <p className="text-sm font-medium text-foreground truncate">{room.name || "Unnamed"}</p>
                       <p className="text-xs text-muted-foreground capitalize">{room.type.replace("_", " ")}</p>
                     </div>
+                    {unreadRooms.has(room.id) && (
+                      <span className="mt-1 h-3 w-3 rounded-full bg-primary shrink-0 animate-pulse" />
+                    )}
                   </div>
                 </button>
               ))
