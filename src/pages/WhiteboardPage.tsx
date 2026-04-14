@@ -932,10 +932,15 @@ export default function WhiteboardPage() {
 
                 {/* Board info */}
                 <div className="ml-auto">
-                  <Badge variant="secondary">
-                    <Users className="h-3 w-3 mr-1" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setMembersDialogOpen(true)}
+                  >
+                    <Users className="h-3.5 w-3.5" />
                     {selectedBoardData?.whiteboard_members?.length || 0} members
-                  </Badge>
+                  </Button>
                 </div>
               </div>
             </CardContent>
