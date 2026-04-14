@@ -46,6 +46,7 @@ const App = () => (
       <AuthProvider>
         <ChatNotificationProvider>
           <TooltipProvider>
+          <Toaster />
           <Sonner />
           <BrowserRouter>
             <Routes>
