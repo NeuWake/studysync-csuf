@@ -42,6 +42,7 @@ const MESSAGES_PER_PAGE = 15;
 export default function ChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { unreadRooms, markRoomRead } = useChatNotifications();
   const queryClient = useQueryClient();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [message, setMessage] = useState("");
