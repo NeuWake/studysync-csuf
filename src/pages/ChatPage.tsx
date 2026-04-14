@@ -45,6 +45,7 @@ export default function ChatPage() {
   const [newChatType, setNewChatType] = useState<"dm" | "group">("group");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
   const [inviteUsers, setInviteUsers] = useState<UserResult[]>([]);
   const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
   const [hasMore, setHasMore] = useState(false);
