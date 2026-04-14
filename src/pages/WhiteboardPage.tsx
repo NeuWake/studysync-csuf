@@ -1058,6 +1058,16 @@ export default function WhiteboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {selectedBoard && selectedBoardData && (
+        <WhiteboardMembersDialog
+          open={membersDialogOpen}
+          onOpenChange={setMembersDialogOpen}
+          whiteboardId={selectedBoard}
+          createdBy={selectedBoardData.created_by}
+          onLeft={() => setSelectedBoard(null)}
+        />
+      )}
     </div>
   );
 }
