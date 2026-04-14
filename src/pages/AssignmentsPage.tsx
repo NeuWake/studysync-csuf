@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,17 +74,19 @@ export default function AssignmentsPage() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: Status }) => {
+    mutationFn: async ({ id, status, currentProgress }: { id: string; status: Status; currentProgress?: number }) => {
       const update: any = { status };
       if (status === "completed") {
         update.progress = 100;
         update.completed_at = new Date().toISOString();
-      } else if (status === "in-progress") {
-        update.progress = 50;
+      } else if (status === "missed") {
         update.completed_at = null;
       } else {
-        update.progress = 0;
+        // Preserve existing progress for pending/in-progress
         update.completed_at = null;
+        if (status === "in-progress" && (currentProgress === undefined || currentProgress === 0)) {
+          update.progress = 10;
+        }
       }
       const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
       if (error) throw error;
@@ -95,6 +98,28 @@ export default function AssignmentsPage() {
     },
     onError: (err: any) => {
       toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updateProgressMutation = useMutation({
+    mutationFn: async ({ id, progress }: { id: string; progress: number }) => {
+      const update: any = { progress };
+      if (progress === 100) {
+        update.status = "completed";
+        update.completed_at = new Date().toISOString();
+      } else if (progress > 0) {
+        update.status = "in-progress";
+        update.completed_at = null;
+      }
+      const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Progress update failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -226,11 +251,18 @@ export default function AssignmentsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-32">
-                        <Progress value={a.progress || 0} className="h-2" />
+                      <div className="w-36">
+                        <Slider
+                          value={[a.progress || 0]}
+                          min={0}
+                          max={100}
+                          step={5}
+                          onValueCommit={(val) => updateProgressMutation.mutate({ id: a.id, progress: val[0] })}
+                          className="h-2"
+                        />
                         <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress || 0}%</p>
                       </div>
-                      <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status })}>
+                      <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status, currentProgress: a.progress || 0 })}>
                         <SelectTrigger className="w-[140px] h-8 text-xs">
                           <div className="flex items-center gap-1">
                             <sc.icon className="h-3 w-3" />
