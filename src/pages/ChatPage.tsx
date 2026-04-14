@@ -60,11 +60,53 @@ export default function ChatPage() {
     selectedRoomRef.current = selectedRoom;
   }, [selectedRoom]);
 
-  // Reset limit when switching rooms
+  // Reset limit and clear unread when switching rooms
   useEffect(() => {
     setMessageLimit(MESSAGES_PER_PAGE);
     shouldScrollRef.current = true;
+    if (selectedRoom) {
+      setUnreadRooms((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedRoom);
+        return next;
+      });
+    }
   }, [selectedRoom]);
+
+  // Global realtime subscription for unread indicators + toast notifications
+  useEffect(() => {
+    if (!user) return;
+    const globalChannel = supabase
+      .channel(`global-messages:${user.id}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      }, (payload) => {
+        const newMsg = payload.new as any;
+        // Skip own messages
+        if (newMsg.user_id === user.id) return;
+        // Mark as unread if not currently viewing that room
+        if (newMsg.chatroom_id !== selectedRoomRef.current) {
+          setUnreadRooms((prev) => new Set(prev).add(newMsg.chatroom_id));
+          // Show toast notification
+          supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", newMsg.user_id)
+            .maybeSingle()
+            .then(({ data: profile }) => {
+              const senderName = profile?.full_name || "Someone";
+              toast({
+                title: `New message from ${senderName}`,
+                description: newMsg.content.length > 50 ? newMsg.content.slice(0, 50) + "…" : newMsg.content,
+              });
+            });
+        }
+      })
+      .subscribe();
+    return () => { globalChannel.unsubscribe(); };
+  }, [user, toast]);
 
   // Realtime subscription for invitation notifications
   useEffect(() => {
