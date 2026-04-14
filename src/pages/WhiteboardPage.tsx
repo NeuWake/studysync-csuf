@@ -619,7 +619,6 @@ export default function WhiteboardPage() {
       e.preventDefault();
       e.stopPropagation();
       textJustOpenedRef.current = true;
-      // Position text input in screen coords
       const [sx, sy] = worldToScreen(x, y);
       setTextInput({ x: sx, y: sy, visible: true });
       setTextValue("");
@@ -629,8 +628,6 @@ export default function WhiteboardPage() {
       }, 100);
       return;
     }
-
-    if (activeTool === "hand") return;
 
     setIsDrawing(true);
     if (activeTool === "pen" || activeTool === "eraser") {
