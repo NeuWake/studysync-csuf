@@ -251,11 +251,18 @@ export default function AssignmentsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-32">
-                        <Progress value={a.progress || 0} className="h-2" />
+                      <div className="w-36">
+                        <Slider
+                          value={[a.progress || 0]}
+                          min={0}
+                          max={100}
+                          step={5}
+                          onValueCommit={(val) => updateProgressMutation.mutate({ id: a.id, progress: val[0] })}
+                          className="h-2"
+                        />
                         <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress || 0}%</p>
                       </div>
-                      <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status })}>
+                      <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status, currentProgress: a.progress || 0 })}>
                         <SelectTrigger className="w-[140px] h-8 text-xs">
                           <div className="flex items-center gap-1">
                             <sc.icon className="h-3 w-3" />
