@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus, ChevronUp } from "lucide-react";
+import { Send, Plus, Users, Search, Loader2, MessageSquare, UserPlus, ChevronUp, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import UserSearchSelect from "@/components/chat/UserSearchSelect";
 import ChatMembersDialog from "@/components/chat/ChatMembersDialog";
+import ChatInvitationsDialog from "@/components/chat/ChatInvitationsDialog";
 
 interface Message {
   id: string;
@@ -44,6 +45,7 @@ export default function ChatPage() {
   const [newChatType, setNewChatType] = useState<"dm" | "group">("group");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
   const [inviteUsers, setInviteUsers] = useState<UserResult[]>([]);
   const [messageLimit, setMessageLimit] = useState(MESSAGES_PER_PAGE);
   const [hasMore, setHasMore] = useState(false);
@@ -76,6 +78,22 @@ export default function ChatPage() {
         .order("created_at", { ascending: false });
       if (crErr) throw crErr;
       return chatrooms || [];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch pending invitation count
+  const { data: pendingInviteCount = 0 } = useQuery({
+    queryKey: ["chat-invitations-count", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count, error } = await supabase
+        .from("chatroom_invitations")
+        .select("*", { count: "exact", head: true })
+        .eq("invited_user_id", user.id)
+        .eq("status", "pending");
+      if (error) return 0;
+      return count || 0;
     },
     enabled: !!user,
   });
@@ -172,7 +190,7 @@ export default function ChatPage() {
     sendMutation.mutate(text);
   };
 
-  // Create chatroom with invited users
+  // Create chatroom with invitations (not direct add)
   const createRoomMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
@@ -188,13 +206,25 @@ export default function ChatPage() {
         .single();
       if (error) throw error;
 
-      // Add creator + invited users as members
-      const memberInserts = [
-        { chatroom_id: room.id, user_id: user.id },
-        ...inviteUsers.map((u) => ({ chatroom_id: room.id, user_id: u.user_id })),
-      ];
-      const { error: memErr } = await supabase.from("chatroom_members").insert(memberInserts);
+      // Add only the creator as a member
+      const { error: memErr } = await supabase
+        .from("chatroom_members")
+        .insert({ chatroom_id: room.id, user_id: user.id });
       if (memErr) throw memErr;
+
+      // Send invitations to selected users
+      if (inviteUsers.length > 0) {
+        const invitations = inviteUsers.map((u) => ({
+          chatroom_id: room.id,
+          invited_by: user.id,
+          invited_user_id: u.user_id,
+        }));
+        const { error: invErr } = await supabase
+          .from("chatroom_invitations")
+          .insert(invitations);
+        if (invErr) throw invErr;
+      }
+
       return room;
     },
     onSuccess: (room) => {
@@ -203,7 +233,7 @@ export default function ChatPage() {
       setNewChatName("");
       setInviteUsers([]);
       setDialogOpen(false);
-      toast({ title: "Chat created!" });
+      toast({ title: inviteUsers.length > 0 ? "Chat created! Invitations sent." : "Chat created!" });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -226,10 +256,19 @@ export default function ChatPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Messages</CardTitle>
-            <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setInviteUsers([]); setNewChatName(""); } }}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="relative" onClick={() => setInvitationsOpen(true)}>
+                <Bell className="h-4 w-4" />
+                {pendingInviteCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center">
+                    {pendingInviteCount}
+                  </span>
+                )}
+              </Button>
+              <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setInviteUsers([]); setNewChatName(""); } }}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon"><Plus className="h-4 w-4" /></Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>New Chat</DialogTitle></DialogHeader>
                 <div className="space-y-4 pt-2">
@@ -274,6 +313,7 @@ export default function ChatPage() {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -406,11 +446,23 @@ export default function ChatPage() {
                 onOpenChange={setMembersOpen}
                 chatroomId={selectedRoom}
                 createdBy={selectedRoomData.created_by}
+                onLeft={() => setSelectedRoom(null)}
               />
             )}
           </>
         )}
       </Card>
+
+      <ChatInvitationsDialog
+        open={invitationsOpen}
+        onOpenChange={(o) => {
+          setInvitationsOpen(o);
+          if (!o) {
+            queryClient.invalidateQueries({ queryKey: ["chat-invitations-count"] });
+            queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
+          }
+        }}
+      />
     </div>
   );
 }

@@ -68,6 +68,44 @@ export type Database = {
           },
         ]
       }
+      chatroom_invitations: {
+        Row: {
+          chatroom_id: string
+          created_at: string
+          id: string
+          invited_by: string
+          invited_user_id: string
+          status: Database["public"]["Enums"]["invitation_status"]
+          updated_at: string
+        }
+        Insert: {
+          chatroom_id: string
+          created_at?: string
+          id?: string
+          invited_by: string
+          invited_user_id: string
+          status?: Database["public"]["Enums"]["invitation_status"]
+          updated_at?: string
+        }
+        Update: {
+          chatroom_id?: string
+          created_at?: string
+          id?: string
+          invited_by?: string
+          invited_user_id?: string
+          status?: Database["public"]["Enums"]["invitation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatroom_invitations_chatroom_id_fkey"
+            columns: ["chatroom_id"]
+            isOneToOne: false
+            referencedRelation: "chatrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatroom_members: {
         Row: {
           chatroom_id: string
@@ -708,6 +746,7 @@ export type Database = {
         | "study"
         | "exam"
       friendship_status: "pending" | "accepted" | "blocked"
+      invitation_status: "pending" | "accepted" | "declined"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -856,6 +895,7 @@ export const Constants = {
         "exam",
       ],
       friendship_status: ["pending", "accepted", "blocked"],
+      invitation_status: ["pending", "accepted", "declined"],
     },
   },
 } as const
