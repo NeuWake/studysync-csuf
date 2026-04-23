@@ -266,11 +266,56 @@ Deno.serve(async (req) => {
             assignmentId = newAssign.id;
           }
 
-          // Create user_assignment record
+          // Derive status from Canvas submission
+          const sub = ca.submission;
+          const subState = sub?.workflow_state;
+          const isCompleted =
+            subState === "graded" ||
+            subState === "submitted" ||
+            subState === "pending_review" ||
+            !!sub?.submitted_at ||
+            !!sub?.graded_at ||
+            sub?.excused === true;
+
+          let status: "pending" | "in-progress" | "completed" | "missed" = "pending";
+          let progress = 0;
+          let completedAt: string | null = null;
+
+          if (isCompleted) {
+            status = "completed";
+            progress = 100;
+            completedAt = sub?.graded_at || sub?.submitted_at || new Date().toISOString();
+          } else if (sub?.missing === true) {
+            status = "missed";
+          } else if (ca.due_at && new Date(ca.due_at) < new Date()) {
+            status = "missed";
+          }
+
+          // Preserve user's manual completion if they already marked it done
+          const { data: existingUA } = await supabase
+            .from("user_assignments")
+            .select("status, completed_at, progress")
+            .eq("user_id", user.id)
+            .eq("assignment_id", assignmentId)
+            .maybeSingle();
+
+          if (existingUA?.status === "completed" && !isCompleted) {
+            // keep their manual completion
+            status = "completed";
+            progress = existingUA.progress ?? 100;
+            completedAt = existingUA.completed_at;
+          }
+
           await supabase
             .from("user_assignments")
             .upsert(
-              { user_id: user.id, assignment_id: assignmentId, status: "pending" },
+              {
+                user_id: user.id,
+                assignment_id: assignmentId,
+                status,
+                progress,
+                completed_at: completedAt,
+              },
               { onConflict: "user_id,assignment_id" }
             );
 
