@@ -22,7 +22,35 @@ export default function AuthPage() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+      const isUnconfirmed = error.message.toLowerCase().includes("not confirmed") || (error as any).code === "email_not_confirmed";
+      if (isUnconfirmed) {
+        toast({
+          title: "Email not confirmed",
+          description: "Please check your inbox and click the confirmation link before signing in.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Login failed", description: error.message, variant: "destructive" });
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      toast({ title: "Email required", description: "Enter your email above first.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    });
+    if (error) {
+      toast({ title: "Could not resend", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Confirmation sent", description: "Check your inbox for the new confirmation link." });
     }
     setLoading(false);
   };
