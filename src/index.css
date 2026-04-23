@@ -53,6 +53,9 @@
     --success-foreground: 0 0% 100%;
     --warning: 43 96% 56%;
     --warning-foreground: 0 0% 100%;
+
+    --accent-bg: 25 60% 98%;
+    --accent-bg-soft: 25 50% 96%;
   }
 
   .dark {
