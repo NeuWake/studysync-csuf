@@ -126,7 +126,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("studysync-theme", theme);
-  }, [theme]);
+    // Re-apply accent so its tints adapt to light/dark
+    applyAccentColor(accentColor);
+  }, [theme, accentColor]);
 
   useEffect(() => {
     applyAccentColor(accentColor);
