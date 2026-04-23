@@ -38,10 +38,31 @@ export const useTheme = () => useContext(ThemeContext);
 
 function applyAccentColor(color: AccentColor) {
   const root = document.documentElement;
+  const isDark = root.classList.contains("dark");
+
+  // Parse "H S% L%" into parts so we can derive subtle tints
+  const [hStr, sStr] = color.hsl.split(" ");
+  const h = hStr;
+  const s = sStr;
+
   root.style.setProperty("--primary", color.hsl);
   root.style.setProperty("--ring", color.hsl);
   root.style.setProperty("--sidebar-primary", color.hsl);
   root.style.setProperty("--sidebar-ring", color.hsl);
+
+  // Subtle sidebar accent (hover/active row background) tinted by accent color
+  if (isDark) {
+    root.style.setProperty("--sidebar-accent", `${h} ${s} 15%`);
+    root.style.setProperty("--sidebar-accent-foreground", `${h} ${s} 75%`);
+    // Very subtle app background tint
+    root.style.setProperty("--accent-bg", `${h} 30% 7%`);
+    root.style.setProperty("--accent-bg-soft", `${h} 25% 10%`);
+  } else {
+    root.style.setProperty("--sidebar-accent", `${h} ${s} 95%`);
+    root.style.setProperty("--sidebar-accent-foreground", `${h} ${s} 35%`);
+    root.style.setProperty("--accent-bg", `${h} 60% 98%`);
+    root.style.setProperty("--accent-bg-soft", `${h} 50% 96%`);
+  }
 }
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
