@@ -264,13 +264,50 @@ export default function AssignmentsPage() {
             <SelectItem value="missed">Missed</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterCourse} onValueChange={setFilterCourse}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Course" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Courses</SelectItem>
-            {courses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-[180px] justify-between gap-2 font-normal">
+              <span className="flex items-center gap-2 truncate">
+                <BookOpen className="h-4 w-4" />
+                {courseFilterActive
+                  ? selectedCourses!.length === 1
+                    ? selectedCourses![0]
+                    : `${selectedCourses!.length} courses`
+                  : "All Courses"}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[220px] max-h-[320px] overflow-y-auto">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Filter by course</span>
+              {courseFilterActive && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourses([])}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {courses.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground text-center">No courses yet</div>
+            ) : (
+              courses.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c}
+                  checked={selectedCourses?.includes(c) ?? false}
+                  onCheckedChange={(checked) => toggleCourse(c, !!checked)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {c}
+                </DropdownMenuCheckboxItem>
+              ))
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {isLoading ? (
