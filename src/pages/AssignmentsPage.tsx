@@ -206,18 +206,30 @@ export default function AssignmentsPage() {
     },
   });
 
-  const courses = [...new Set(
-    assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean)
-  )];
+  const courses = useMemo(
+    () => [...new Set(assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean))] as string[],
+    [assignments]
+  );
+
+  // Empty selection means "show all" so a fresh user isn't filtered to nothing
+  const courseFilterActive = (selectedCourses?.length ?? 0) > 0;
 
   const filtered = assignments.filter((a: any) => {
     const assign = a.assignment;
     if (!assign) return false;
     if (search && !assign.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus !== "all" && a.status !== filterStatus) return false;
-    if (filterCourse !== "all" && assign.course?.name !== filterCourse) return false;
+    if (courseFilterActive && !selectedCourses!.includes(assign.course?.name)) return false;
     return true;
   });
+
+  const toggleCourse = (name: string, checked: boolean) => {
+    setSelectedCourses((prev) => {
+      const cur = prev ?? [];
+      if (checked) return cur.includes(name) ? cur : [...cur, name];
+      return cur.filter((c) => c !== name);
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
