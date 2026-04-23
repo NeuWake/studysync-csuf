@@ -96,32 +96,7 @@ export default function StatsPage() {
       return { day, tasks };
     });
 
-    // Avg time to completion (last 5 weeks)
-    const timeData = [];
-    for (let i = 4; i >= 0; i--) {
-      const wStart = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), -i * 7);
-      const wEnd = addDays(wStart, 7);
-      const weekCompleted = userAssignments.filter((a) => {
-        if (a.status !== "completed" || !a.completed_at) return false;
-        const d = new Date(a.completed_at);
-        return d >= wStart && d < wEnd;
-      });
-      const avgHours =
-        weekCompleted.length > 0
-          ? Math.round(
-              (weekCompleted.reduce((sum, a) => {
-                const created = new Date(a.created_at);
-                const done = new Date(a.completed_at!);
-                return sum + Math.max(differenceInHours(done, created), 0);
-              }, 0) /
-                weekCompleted.length) *
-                10
-            ) / 10
-          : 0;
-      timeData.push({ week: `W${5 - i}`, avgHours });
-    }
-
-    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData, timeData };
+    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData };
   }, [userAssignments]);
 
   if (loadingUA) {
