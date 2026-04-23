@@ -33,9 +33,40 @@ export default function AssignmentsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterCourse, setFilterCourse] = useState<string>("all");
+  // null = not yet loaded from server; [] = explicitly no courses; otherwise array of course names to include
+  const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
+
+  // Load saved course filter preference
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("preferences")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const prefs = (data?.preferences as any) || {};
+        const saved = Array.isArray(prefs.assignmentCourseFilter) ? prefs.assignmentCourseFilter : null;
+        setSelectedCourses(saved ?? []);
+      });
+  }, [user]);
+
+  // Persist course filter preference (debounced)
+  useEffect(() => {
+    if (!user || selectedCourses === null) return;
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("preferences")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const prefs = { ...((data?.preferences as any) || {}), assignmentCourseFilter: selectedCourses };
+      await supabase.from("profiles").update({ preferences: prefs }).eq("user_id", user.id);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [selectedCourses, user]);
 
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["user-assignments", user?.id],
