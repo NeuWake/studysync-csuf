@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
       // 2. Fetch assignments for this course
       try {
         const assignRes = await fetch(
-          `${canvasBaseUrl}/api/v1/courses/${cc.id}/assignments?per_page=100&order_by=due_at`,
+          `${canvasBaseUrl}/api/v1/courses/${cc.id}/assignments?per_page=100&order_by=due_at&include[]=submission`,
           { headers: { Authorization: `Bearer ${canvasToken}` } }
         );
 
