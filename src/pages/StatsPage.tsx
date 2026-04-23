@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, Award, Flame, Target, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, addDays, differenceInHours } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, addDays } from "date-fns";
 import { useMemo } from "react";
 
 export default function StatsPage() {
@@ -96,32 +96,7 @@ export default function StatsPage() {
       return { day, tasks };
     });
 
-    // Avg time to completion (last 5 weeks)
-    const timeData = [];
-    for (let i = 4; i >= 0; i--) {
-      const wStart = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), -i * 7);
-      const wEnd = addDays(wStart, 7);
-      const weekCompleted = userAssignments.filter((a) => {
-        if (a.status !== "completed" || !a.completed_at) return false;
-        const d = new Date(a.completed_at);
-        return d >= wStart && d < wEnd;
-      });
-      const avgHours =
-        weekCompleted.length > 0
-          ? Math.round(
-              (weekCompleted.reduce((sum, a) => {
-                const created = new Date(a.created_at);
-                const done = new Date(a.completed_at!);
-                return sum + Math.max(differenceInHours(done, created), 0);
-              }, 0) /
-                weekCompleted.length) *
-                10
-            ) / 10
-          : 0;
-      timeData.push({ week: `W${5 - i}`, avgHours });
-    }
-
-    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData, timeData };
+    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData };
   }, [userAssignments]);
 
   if (loadingUA) {
@@ -212,20 +187,6 @@ export default function StatsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Avg Time to Completion</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={stats?.timeData ?? []}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="week" className="text-xs" />
-                <YAxis className="text-xs" />
-                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
-                <Line type="monotone" dataKey="avgHours" stroke="hsl(25, 95%, 53%)" strokeWidth={2} dot={{ fill: "hsl(25, 95%, 53%)" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
