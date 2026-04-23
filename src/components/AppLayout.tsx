@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet } from "react-router-dom";
+import { CanvasOnboardingDialog } from "@/components/CanvasOnboardingDialog";
 
 export function AppLayout() {
   return (
@@ -17,6 +18,7 @@ export function AppLayout() {
           </main>
         </div>
       </div>
+      <CanvasOnboardingDialog />
     </SidebarProvider>
   );
 }
