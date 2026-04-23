@@ -12,6 +12,16 @@ interface CanvasCourse {
   workflow_state: string;
 }
 
+interface CanvasSubmission {
+  workflow_state?: string; // "submitted" | "unsubmitted" | "graded" | "pending_review"
+  submitted_at?: string | null;
+  graded_at?: string | null;
+  score?: number | null;
+  missing?: boolean;
+  late?: boolean;
+  excused?: boolean;
+}
+
 interface CanvasAssignment {
   id: number;
   name: string;
@@ -20,6 +30,8 @@ interface CanvasAssignment {
   points_possible: number | null;
   submission_types: string[];
   course_id: number;
+  submission?: CanvasSubmission | null;
+  has_submitted_submissions?: boolean;
 }
 
 Deno.serve(async (req) => {
