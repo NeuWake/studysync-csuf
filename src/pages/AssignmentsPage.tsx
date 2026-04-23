@@ -1,13 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
@@ -31,9 +33,40 @@ export default function AssignmentsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterCourse, setFilterCourse] = useState<string>("all");
+  // null = not yet loaded from server; [] = explicitly no courses; otherwise array of course names to include
+  const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
+
+  // Load saved course filter preference
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("preferences")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const prefs = (data?.preferences as any) || {};
+        const saved = Array.isArray(prefs.assignmentCourseFilter) ? prefs.assignmentCourseFilter : null;
+        setSelectedCourses(saved ?? []);
+      });
+  }, [user]);
+
+  // Persist course filter preference (debounced)
+  useEffect(() => {
+    if (!user || selectedCourses === null) return;
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("preferences")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const prefs = { ...((data?.preferences as any) || {}), assignmentCourseFilter: selectedCourses };
+      await supabase.from("profiles").update({ preferences: prefs }).eq("user_id", user.id);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [selectedCourses, user]);
 
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["user-assignments", user?.id],
@@ -173,18 +206,30 @@ export default function AssignmentsPage() {
     },
   });
 
-  const courses = [...new Set(
-    assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean)
-  )];
+  const courses = useMemo(
+    () => [...new Set(assignments.map((a: any) => a.assignment?.course?.name).filter(Boolean))] as string[],
+    [assignments]
+  );
+
+  // Empty selection means "show all" so a fresh user isn't filtered to nothing
+  const courseFilterActive = (selectedCourses?.length ?? 0) > 0;
 
   const filtered = assignments.filter((a: any) => {
     const assign = a.assignment;
     if (!assign) return false;
     if (search && !assign.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus !== "all" && a.status !== filterStatus) return false;
-    if (filterCourse !== "all" && assign.course?.name !== filterCourse) return false;
+    if (courseFilterActive && !selectedCourses!.includes(assign.course?.name)) return false;
     return true;
   });
+
+  const toggleCourse = (name: string, checked: boolean) => {
+    setSelectedCourses((prev) => {
+      const cur = prev ?? [];
+      if (checked) return cur.includes(name) ? cur : [...cur, name];
+      return cur.filter((c) => c !== name);
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -219,13 +264,50 @@ export default function AssignmentsPage() {
             <SelectItem value="missed">Missed</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterCourse} onValueChange={setFilterCourse}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Course" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Courses</SelectItem>
-            {courses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-[180px] justify-between gap-2 font-normal">
+              <span className="flex items-center gap-2 truncate">
+                <BookOpen className="h-4 w-4" />
+                {courseFilterActive
+                  ? selectedCourses!.length === 1
+                    ? selectedCourses![0]
+                    : `${selectedCourses!.length} courses`
+                  : "All Courses"}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[220px] max-h-[320px] overflow-y-auto">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Filter by course</span>
+              {courseFilterActive && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourses([])}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {courses.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground text-center">No courses yet</div>
+            ) : (
+              courses.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c}
+                  checked={selectedCourses?.includes(c) ?? false}
+                  onCheckedChange={(checked) => toggleCourse(c, !!checked)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {c}
+                </DropdownMenuCheckboxItem>
+              ))
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {isLoading ? (

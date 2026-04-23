@@ -295,6 +295,7 @@ export type Database = {
           help_points: number | null
           id: string
           major: string | null
+          preferences: Json
           study_interests: string | null
           study_streaks: number | null
           theme_mode: string | null
@@ -312,6 +313,7 @@ export type Database = {
           help_points?: number | null
           id?: string
           major?: string | null
+          preferences?: Json
           study_interests?: string | null
           study_streaks?: number | null
           theme_mode?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           help_points?: number | null
           id?: string
           major?: string | null
+          preferences?: Json
           study_interests?: string | null
           study_streaks?: number | null
           theme_mode?: string | null
