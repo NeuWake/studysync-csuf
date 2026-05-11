@@ -66,7 +66,7 @@ export default function AuthPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const allowedOrigin = window.location.origin;
+    const allowedOrigin = window.location.origin.replace(/^http:\/\//, "https://");
     const { error } = await supabase.auth.signUp({
       email,
       password,
