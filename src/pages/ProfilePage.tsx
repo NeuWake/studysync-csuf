@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState({
     fullName: "",
+    username: "",
     avatarUrl: "" as string,
     university: "California State University, Fullerton",
     major: "",
