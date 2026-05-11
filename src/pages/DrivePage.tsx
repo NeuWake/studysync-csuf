@@ -65,6 +65,20 @@ const iconForMime = (mime: string) => {
   return FileIcon;
 };
 
+function StatusRow({ ok, pending, failed, label, detail }: { ok?: boolean; pending?: boolean; failed?: boolean; label: string; detail?: string }) {
+  const Icon = pending ? Loader2 : failed ? XCircle : ok ? CheckCircle2 : XCircle;
+  const tone = pending ? "text-muted-foreground" : failed ? "text-destructive" : ok ? "text-green-600 dark:text-green-500" : "text-muted-foreground";
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${tone} ${pending ? "animate-spin" : ""}`} />
+      <div className="min-w-0">
+        <div className="font-medium">{label}</div>
+        {detail && <div className="text-xs text-muted-foreground truncate">{detail}</div>}
+      </div>
+    </div>
+  );
+}
+
 const formatBytes = (bytes?: string) => {
   if (!bytes) return "—";
   const n = Number(bytes);
