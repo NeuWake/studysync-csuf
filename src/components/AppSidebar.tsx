@@ -51,7 +51,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { signOut } = useAuth();
-  const { hasUnread, chimeMuted, toggleChimeMute } = useChatNotifications();
+  const { hasUnread, unreadRooms, chimeMuted, toggleChimeMute } = useChatNotifications();
+  const unreadCount = unreadRooms.size;
 
   return (
     <Sidebar collapsible="icon">
@@ -84,10 +85,17 @@ export function AppSidebar() {
                       className="hover:bg-sidebar-accent/50 relative"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
+                      <div className="relative mr-2">
+                        <item.icon className="h-4 w-4" />
+                        {item.url === "/chat" && hasUnread && collapsed && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-sidebar" />
+                        )}
+                      </div>
                       {!collapsed && <span>{item.title}</span>}
-                      {item.url === "/chat" && hasUnread && location.pathname !== "/chat" && (
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
+                      {item.url === "/chat" && hasUnread && !collapsed && (
+                        <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none animate-pulse">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
