@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatNotificationContextType {
   hasUnread: boolean;
@@ -10,6 +11,8 @@ interface ChatNotificationContextType {
   markAllRead: () => void;
   chimeMuted: boolean;
   toggleChimeMute: () => void;
+  /** Broadcast that a chat was deleted so other tabs clear their unread state. */
+  notifyChatDeleted: (roomId: string) => void;
 }
 
 const ChatNotificationContext = createContext<ChatNotificationContextType>({
@@ -19,6 +22,7 @@ const ChatNotificationContext = createContext<ChatNotificationContextType>({
   markAllRead: () => {},
   chimeMuted: false,
   toggleChimeMute: () => {},
+  notifyChatDeleted: () => {},
 });
 
 export const useChatNotifications = () => useContext(ChatNotificationContext);
