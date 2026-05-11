@@ -271,6 +271,63 @@ export default function DrivePage() {
         </div>
       </div>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" /> Connection status
+          </CardTitle>
+          <CardDescription>Verify your OAuth connection and that the Drive API is reachable.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <StatusRow
+            ok={clientIdConfigured}
+            label="OAuth Client ID configured"
+            detail={clientIdConfigured ? `${GOOGLE_OAUTH_CLIENT_ID.slice(0, 16)}…` : "Missing in src/config/google.ts"}
+          />
+          <StatusRow
+            ok={gisReady}
+            pending={!gisReady}
+            label="Google Identity Services loaded"
+            detail={gisReady ? "accounts.google.com/gsi/client ready" : "Loading script…"}
+          />
+          <StatusRow
+            ok={!!token}
+            label="OAuth access token"
+            detail={
+              token
+                ? `Granted · expires ${new Date(tokenExp).toLocaleTimeString()} (${Math.max(0, Math.round((tokenExp - Date.now()) / 60000))} min)`
+                : "Not connected"
+            }
+          />
+          <StatusRow
+            ok={apiCheck.status === "ok"}
+            pending={apiCheck.status === "checking"}
+            failed={apiCheck.status === "error"}
+            label="Drive API reachable"
+            detail={
+              apiCheck.status === "ok"
+                ? `Responded as ${apiCheck.user ?? "user"}`
+                : apiCheck.status === "error"
+                ? apiCheck.message
+                : apiCheck.status === "checking"
+                ? "Pinging drive.googleapis.com…"
+                : "Not tested yet"
+            }
+          />
+          <div className="pt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={testDriveApi} disabled={!token || apiCheck.status === "checking"}>
+              {apiCheck.status === "checking" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+              Test Drive API
+            </Button>
+            {token && (
+              <Button size="sm" variant="ghost" onClick={connectDrive}>
+                Re-authorize
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {!token ? (
         <Card>
           <CardHeader>
