@@ -98,7 +98,7 @@ export const ChatNotificationProvider: React.FC<{ children: React.ReactNode }> =
 
           // Toast
           supabase
-            .from("profiles")
+            .from("public_profiles")
             .select("full_name")
             .eq("user_id", newMsg.user_id)
             .maybeSingle()
