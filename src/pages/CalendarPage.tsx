@@ -426,14 +426,14 @@ export default function CalendarPage() {
                 {hours.map((h) => {
                   const dayItems = (itemsByDateKey.get(currentDate.toDateString()) || []).filter((it) => it.date.getHours() === h);
                   return (
-                    <>
-                      <div key={`dh-${h}`} className="text-xs text-muted-foreground p-1 border-r border-border text-right pr-2 h-16">
+                    <Fragment key={`dh-${h}`}>
+                      <div className="text-xs text-muted-foreground p-1 border-r border-border text-right pr-2 h-16">
                         {h.toString().padStart(2, "0")}:00
                       </div>
-                      <div key={`dc-${h}`} className="border-b border-border h-16 p-1 space-y-0.5 hover:bg-muted/30">
+                      <div className="border-b border-border h-16 p-1 space-y-0.5 hover:bg-muted/30">
                         {dayItems.map((it, j) => renderEventChip(it, j))}
                       </div>
-                    </>
+                    </Fragment>
                   );
                 })}
               </div>
