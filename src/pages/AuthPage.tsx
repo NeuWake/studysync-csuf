@@ -71,19 +71,23 @@ export default function AuthPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const allowedOrigin = window.location.origin.replace(/^http:\/\//, "https://");
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${allowedOrigin}/dashboard`,
-      },
-    });
-    if (error) {
-      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Check your email", description: "We've sent you a confirmation link." });
+    try {
+      const emailRedirectTo = buildAuthRedirectUrl("/dashboard");
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName },
+          emailRedirectTo,
+        },
+      });
+      if (error) {
+        toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Check your email", description: "We've sent you a confirmation link." });
+      }
+    } catch (err: any) {
+      toast({ title: "Invalid redirect URL", description: err.message, variant: "destructive" });
     }
     setLoading(false);
   };
@@ -91,14 +95,16 @@ export default function AuthPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const allowedOrigin = window.location.origin.replace(/^http:\/\//, "https://");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${allowedOrigin}/reset-password`,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Check your email", description: "Password reset link sent." });
+    try {
+      const redirectTo = buildAuthRedirectUrl("/reset-password");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Check your email", description: "Password reset link sent." });
+      }
+    } catch (err: any) {
+      toast({ title: "Invalid redirect URL", description: err.message, variant: "destructive" });
     }
     setLoading(false);
   };
