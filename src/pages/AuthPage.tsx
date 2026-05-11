@@ -99,6 +99,19 @@ export default function AuthPage() {
     setLoading(false);
   };
 
+  const handleGoogle = async () => {
+    setLoading(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      toast({ title: "Google sign-in failed", description: (result.error as Error).message, variant: "destructive" });
+      setLoading(false);
+    }
+    // On `redirected: true` the browser will navigate away; on success the
+    // AuthContext picks up the session and routes to /dashboard.
+  };
+
   if (resetMode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
