@@ -8,6 +8,7 @@ import { ChatNotificationProvider } from "@/contexts/ChatNotificationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
+import HomePage from "@/pages/HomePage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
 import CalendarPage from "@/pages/CalendarPage";
@@ -51,7 +52,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/confirm-email" element={<Navigate to="/auth" replace />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
