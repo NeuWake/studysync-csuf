@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { GOOGLE_DRIVE_SCOPE, GOOGLE_OAUTH_CLIENT_ID } from "@/config/google";
-import { GOOGLE_DRIVE_CONNECT_PARAM, getGoogleDriveAuthUrl, getStandaloneConnectUrl, isEmbeddedPreview } from "@/lib/googleDriveOAuth";
+import { getStandaloneConnectUrl, isEmbeddedPreview } from "@/lib/googleDriveOAuth";
 import {
   FolderOpen,
   FileText,
@@ -127,21 +127,6 @@ export default function DrivePage() {
     s.onload = () => setGisReady(true);
     document.body.appendChild(s);
   }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get(GOOGLE_DRIVE_CONNECT_PARAM) !== "1") return;
-    params.delete(GOOGLE_DRIVE_CONNECT_PARAM);
-    const cleanPath = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash}`;
-    window.history.replaceState(null, "", cleanPath);
-    void (async () => {
-      try {
-        window.location.assign(await getGoogleDriveAuthUrl(window.location.href));
-      } catch (e) {
-        toast({ title: "Couldn't start Google sign-in", description: (e as Error).message, variant: "destructive" });
-      }
-    })();
-  }, [toast]);
 
   // Restore cached token if still valid.
   useEffect(() => {
