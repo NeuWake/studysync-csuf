@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  /** Email of a signed-in but unconfirmed user (any provider). */
+  pendingEmail: string | null;
+  /** Provider used by the unconfirmed session (e.g. "email", "google"). */
+  pendingProvider: string | null;
   signOut: () => Promise<void>;
 }
 
@@ -14,6 +17,8 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   loading: true,
+  pendingEmail: null,
+  pendingProvider: null,
   signOut: async () => {},
 });
 
@@ -21,9 +26,8 @@ export const useAuth = () => useContext(AuthContext);
 
 const isEmailConfirmed = (u: User | null | undefined) => {
   if (!u) return false;
-  // Email/password users must have email_confirmed_at. OAuth users (Google, etc.)
-  // are inherently verified by the provider — allow them through.
-  if (u.app_metadata?.provider && u.app_metadata.provider !== "email") return true;
+  // Uniform check across all providers (email/password AND OAuth like Google):
+  // require an explicit email_confirmed_at timestamp from Supabase Auth.
   return Boolean(u.email_confirmed_at || (u as any).confirmed_at);
 };
 
@@ -31,24 +35,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<string | null>(null);
 
   useEffect(() => {
     const handleSession = async (incoming: Session | null) => {
       if (incoming?.user && !isEmailConfirmed(incoming.user)) {
-        // Block any unconfirmed session from being used anywhere in the app.
+        // Block any unconfirmed session — including OAuth providers that
+        // didn't return a verified email — from being used in the app.
+        const email = incoming.user.email ?? null;
+        const provider = (incoming.user.app_metadata?.provider as string) ?? "email";
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
+        setPendingEmail(email);
+        setPendingProvider(provider);
         setLoading(false);
-        toast({
-          title: "Email not confirmed",
-          description: "Please verify your email address before signing in. Check your inbox for the confirmation link.",
-          variant: "destructive",
-        });
         return;
       }
       setSession(incoming);
       setUser(incoming?.user ?? null);
+      if (incoming?.user) {
+        setPendingEmail(null);
+        setPendingProvider(null);
+      }
       setLoading(false);
     };
 
@@ -65,11 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    setPendingEmail(null);
+    setPendingProvider(null);
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, pendingEmail, pendingProvider, signOut }}>
       {children}
     </AuthContext.Provider>
   );
