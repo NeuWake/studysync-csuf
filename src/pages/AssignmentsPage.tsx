@@ -117,11 +117,15 @@ export default function AssignmentsPage() {
         update.progress = 100;
         update.completed_at = new Date().toISOString();
       } else if (status === "missed") {
+        update.progress = 0;
         update.completed_at = null;
-      } else {
-        // Preserve existing progress for pending/in-progress
+      } else if (status === "pending") {
+        update.progress = 0;
         update.completed_at = null;
-        if (status === "in-progress" && (currentProgress === undefined || currentProgress === 0)) {
+      } else if (status === "in-progress") {
+        update.completed_at = null;
+        // Ensure progress reflects in-progress state (not 0 and not 100)
+        if (currentProgress === undefined || currentProgress === 0 || currentProgress >= 100) {
           update.progress = 10;
         }
       }
