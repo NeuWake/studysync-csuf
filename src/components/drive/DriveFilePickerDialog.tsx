@@ -79,9 +79,17 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       });
       const json = await res.json();
       if (!res.ok || !json.url) throw new Error(json.error || "Failed to start OAuth");
-      // Break out of the Lovable preview iframe — Google blocks framing.
-      try { (window.top ?? window).location.href = json.url; }
-      catch { window.open(json.url, "_blank", "noopener,noreferrer"); }
+      // Open in a new tab — Google blocks being framed inside the Lovable preview iframe.
+      const win = window.open(json.url, "_blank", "noopener,noreferrer");
+      if (!win) {
+        toast({
+          title: "Popup blocked",
+          description: "Allow popups for this site, or open the preview in a new tab and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Continue in the new tab", description: "Finish Google sign-in, then return here." });
+      }
       void data;
     } catch (e) {
       toast({ title: "Couldn't start Google sign-in", description: (e as Error).message, variant: "destructive" });
