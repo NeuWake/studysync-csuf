@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { GOOGLE_DRIVE_SCOPE, GOOGLE_OAUTH_CLIENT_ID } from "@/config/google";
-import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink, Eye } from "lucide-react";
 
 declare global {
   interface Window {
