@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap, Mail, Lock, Eye, EyeOff, MailCheck } from "lucide-react";
+import { buildAuthRedirectUrl } from "@/lib/authRedirect";
 
 export default function AuthPage() {
   const { pendingEmail, pendingProvider } = useAuth();
