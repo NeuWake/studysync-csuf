@@ -19,7 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Trash2, Share2, Upload, Users, Loader2, Link as LinkIcon, Download } from "lucide-react";
+import { Plus, FileText, Trash2, Share2, Upload, Users, Loader2, Link as LinkIcon, Download, Search, X } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import mammoth from "mammoth/mammoth.browser";
 import { formatDistanceToNow } from "date-fns";
 
