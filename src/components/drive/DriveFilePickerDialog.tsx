@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { GOOGLE_DRIVE_SCOPE, GOOGLE_OAUTH_CLIENT_ID } from "@/config/google";
-import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink, Eye } from "lucide-react";
 
 declare global {
   interface Window {
@@ -37,7 +38,8 @@ export interface PickedDriveFile {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onPick: (file: PickedDriveFile) => void;
+  /** Receives one or more selected files. */
+  onPick: (files: PickedDriveFile[]) => void;
 }
 
 export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
@@ -49,6 +51,8 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const [search, setSearch] = useState("");
   const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: "root", name: "My Drive" }]);
   const [preview, setPreview] = useState<PickedDriveFile | null>(null);
+  /** Map of fileId -> file, so selection persists across folder navigation/search. */
+  const [selected, setSelected] = useState<Record<string, PickedDriveFile>>({});
   const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
   const current = stack[stack.length - 1];
   const configured = GOOGLE_OAUTH_CLIENT_ID && !GOOGLE_OAUTH_CLIENT_ID.startsWith("PASTE_");
@@ -126,21 +130,39 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
 
   useEffect(() => { if (open && token) void fetchFiles(); }, [open, token, fetchFiles]);
 
-  const handleClick = (f: PickedDriveFile) => {
-    if (f.mimeType === "application/vnd.google-apps.folder") {
-      setSearch("");
-      setStack((s) => [...s, { id: f.id, name: f.name }]);
-    } else {
-      setPreview(f);
-    }
+  const openFolder = (f: PickedDriveFile) => {
+    setSearch("");
+    setStack((s) => [...s, { id: f.id, name: f.name }]);
   };
 
-  const confirmAttach = () => {
-    if (!preview) return;
-    onPick(preview);
+  const toggleSelect = (f: PickedDriveFile) => {
+    setSelected((cur) => {
+      const next = { ...cur };
+      if (next[f.id]) delete next[f.id]; else next[f.id] = f;
+      return next;
+    });
+  };
+
+  const selectedList = Object.values(selected);
+
+  const confirmAttachAll = () => {
+    if (selectedList.length === 0) return;
+    onPick(selectedList);
+    setSelected({});
     setPreview(null);
     onOpenChange(false);
   };
+
+  const confirmAttachPreview = () => {
+    if (!preview) return;
+    onPick([preview]);
+    setSelected({});
+    setPreview(null);
+    onOpenChange(false);
+  };
+
+  // Reset selection when the dialog closes.
+  useEffect(() => { if (!open) { setSelected({}); setPreview(null); } }, [open]);
 
   // Drive's /preview endpoint embeds PDFs, Docs, Sheets, Slides, images, video, and most common doc types.
   const previewSrc = preview ? `https://drive.google.com/file/d/${preview.id}/preview` : "";
@@ -150,7 +172,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Attach from Google Drive</DialogTitle>
-          <DialogDescription>Pick a file from your personal Drive to attach.</DialogDescription>
+          <DialogDescription>Select one or more files from your personal Drive to attach.</DialogDescription>
         </DialogHeader>
 
         {!configured ? (
@@ -188,11 +210,35 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
                   {files.map((f) => {
                     const isFolder = f.mimeType === "application/vnd.google-apps.folder";
                     const Icon = isFolder ? FolderOpen : FileText;
+                    const isSelected = !!selected[f.id];
                     return (
-                      <li key={f.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/40 cursor-pointer" onClick={() => handleClick(f)}>
+                      <li
+                        key={f.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-accent/40 cursor-pointer"
+                        onClick={() => isFolder ? openFolder(f) : toggleSelect(f)}
+                      >
+                        {isFolder ? (
+                          <span className="w-4 h-4 shrink-0" />
+                        ) : (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(f)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
                         <Icon className="h-4 w-4 text-primary shrink-0" />
                         <div className="min-w-0 flex-1 truncate text-sm">{f.name}</div>
-                        {!isFolder && <span className="text-xs text-muted-foreground">Select</span>}
+                        {!isFolder && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => { e.stopPropagation(); setPreview(f); }}
+                            title="Preview"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
                       </li>
                     );
                   })}
@@ -201,8 +247,16 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
             </div>
           </>
         )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div className="text-xs text-muted-foreground self-center">
+            {selectedList.length > 0 ? `${selectedList.length} selected` : "No files selected"}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={confirmAttachAll} disabled={selectedList.length === 0}>
+              Attach {selectedList.length || ""} {selectedList.length === 1 ? "file" : "files"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
 
@@ -235,7 +289,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
               </Button>
             )}
             <Button variant="outline" onClick={() => setPreview(null)}>Back</Button>
-            <Button onClick={confirmAttach}>Attach this file</Button>
+            <Button onClick={confirmAttachPreview}>Attach this file</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

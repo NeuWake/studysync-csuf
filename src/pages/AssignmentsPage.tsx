@@ -55,19 +55,20 @@ export default function AssignmentsPage() {
   });
 
   const attachMutation = useMutation({
-    mutationFn: async ({ assignmentId, file }: { assignmentId: string; file: PickedDriveFile }) => {
-      const url = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
-      const { error } = await supabase.from("task_attachments").insert({
+    mutationFn: async ({ assignmentId, files }: { assignmentId: string; files: PickedDriveFile[] }) => {
+      const rows = files.map((file) => ({
         user_id: user!.id,
         assignment_id: assignmentId,
         file_name: file.name,
-        file_url: url,
+        file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
         file_size: file.size ? Number(file.size) : null,
-      });
+      }));
+      const { error } = await supabase.from("task_attachments").insert(rows);
       if (error) throw error;
+      return rows.length;
     },
-    onSuccess: () => {
-      toast({ title: "Attached", description: "Drive file linked to assignment." });
+    onSuccess: (count) => {
+      toast({ title: "Attached", description: `${count} Drive file${count === 1 ? "" : "s"} linked to assignment.` });
       queryClient.invalidateQueries({ queryKey: ["task-attachments"] });
     },
     onError: (e: Error) => toast({ title: "Couldn't attach", description: e.message, variant: "destructive" }),
@@ -529,8 +530,8 @@ export default function AssignmentsPage() {
       <DriveFilePickerDialog
         open={!!pickerForAssignmentId}
         onOpenChange={(v) => { if (!v) setPickerForAssignmentId(null); }}
-        onPick={(file) => {
-          if (pickerForAssignmentId) attachMutation.mutate({ assignmentId: pickerForAssignmentId, file });
+        onPick={(files) => {
+          if (pickerForAssignmentId && files.length) attachMutation.mutate({ assignmentId: pickerForAssignmentId, files });
           setPickerForAssignmentId(null);
         }}
       />
