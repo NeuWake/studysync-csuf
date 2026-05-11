@@ -5,7 +5,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, FileText, Download, Trash2, Paperclip } from "lucide-react";
+import { Loader2, Upload, FileText, Download, Trash2, Paperclip, Eye, X, Image as ImageIcon } from "lucide-react";
+
+function isImage(type?: string | null, name?: string) {
+  if (type?.startsWith("image/")) return true;
+  return !!name && /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(name);
+}
+function isPdf(type?: string | null, name?: string) {
+  if (type === "application/pdf") return true;
+  return !!name && /\.pdf$/i.test(name);
+}
+function isPreviewable(type?: string | null, name?: string) {
+  return isImage(type, name) || isPdf(type, name);
+}
 
 interface Props {
   userAssignmentId: string;
