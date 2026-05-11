@@ -349,6 +349,9 @@ export type Database = {
           file_size: number | null
           file_url: string
           id: string
+          mime_type: string | null
+          modified_time: string | null
+          owner_name: string | null
           user_id: string
         }
         Insert: {
@@ -358,6 +361,9 @@ export type Database = {
           file_size?: number | null
           file_url: string
           id?: string
+          mime_type?: string | null
+          modified_time?: string | null
+          owner_name?: string | null
           user_id: string
         }
         Update: {
@@ -367,6 +373,9 @@ export type Database = {
           file_size?: number | null
           file_url?: string
           id?: string
+          mime_type?: string | null
+          modified_time?: string | null
+          owner_name?: string | null
           user_id?: string
         }
         Relationships: [

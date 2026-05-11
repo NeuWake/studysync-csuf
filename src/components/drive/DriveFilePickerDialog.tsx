@@ -33,6 +33,8 @@ export interface PickedDriveFile {
   mimeType: string;
   webViewLink?: string;
   size?: string;
+  modifiedTime?: string;
+  owners?: { displayName?: string; emailAddress?: string }[];
 }
 
 interface Props {
@@ -103,7 +105,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
     if (!token) return;
     setLoading(true);
     try {
-      const fields = "files(id,name,mimeType,size,webViewLink)";
+      const fields = "files(id,name,mimeType,size,webViewLink,modifiedTime,owners(displayName,emailAddress))";
       const q = search.trim()
         ? `name contains '${search.trim().replace(/'/g, "\\'")}' and trashed = false`
         : `'${current.id}' in parents and trashed = false`;
