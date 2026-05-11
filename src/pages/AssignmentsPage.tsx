@@ -530,8 +530,8 @@ export default function AssignmentsPage() {
       <DriveFilePickerDialog
         open={!!pickerForAssignmentId}
         onOpenChange={(v) => { if (!v) setPickerForAssignmentId(null); }}
-        onPick={(file) => {
-          if (pickerForAssignmentId) attachMutation.mutate({ assignmentId: pickerForAssignmentId, file });
+        onPick={(files) => {
+          if (pickerForAssignmentId && files.length) attachMutation.mutate({ assignmentId: pickerForAssignmentId, files });
           setPickerForAssignmentId(null);
         }}
       />
