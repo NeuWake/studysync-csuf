@@ -39,6 +39,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { markRoomRead } = useChatNotifications();
   const [usersToAdd, setUsersToAdd] = useState<UserResult[]>([]);
   const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
