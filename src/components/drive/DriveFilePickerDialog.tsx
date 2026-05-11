@@ -131,10 +131,19 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       setSearch("");
       setStack((s) => [...s, { id: f.id, name: f.name }]);
     } else {
-      onPick(f);
-      onOpenChange(false);
+      setPreview(f);
     }
   };
+
+  const confirmAttach = () => {
+    if (!preview) return;
+    onPick(preview);
+    setPreview(null);
+    onOpenChange(false);
+  };
+
+  // Drive's /preview endpoint embeds PDFs, Docs, Sheets, Slides, images, video, and most common doc types.
+  const previewSrc = preview ? `https://drive.google.com/file/d/${preview.id}/preview` : "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
