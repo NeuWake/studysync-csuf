@@ -71,13 +71,6 @@ export default function ProfilePage() {
       toast({ title: "Invalid username", description: "3–20 letters, numbers, or underscores.", variant: "destructive" });
       return;
     }
-    const fname = profile.fullName.trim().toLowerCase();
-    const tokens = fname.split(/\s+/).filter(Boolean);
-    const unameLc = uname.toLowerCase();
-    if (unameLc === fname || unameLc === fname.replace(/\s+/g, "") || tokens.includes(unameLc)) {
-      toast({ title: "Pick a different username", description: "Username can't match your full name or first/last name.", variant: "destructive" });
-      return;
-    }
 
     setSaving(true);
     const { error } = await supabase
@@ -253,7 +246,7 @@ export default function ProfilePage() {
                 placeholder="3-20 letters, numbers, _"
                 maxLength={20}
               />
-              <p className="text-xs text-muted-foreground">Must be unique and different from your name.</p>
+              <p className="text-xs text-muted-foreground">Must be unique. Can include parts of your name.</p>
             </div>
             <div className="space-y-2">
               <Label>University</Label>

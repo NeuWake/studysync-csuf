@@ -11,6 +11,7 @@ interface UserResult {
   user_id: string;
   full_name: string | null;
   university: string | null;
+  username?: string | null;
 }
 
 interface UserSearchSelectProps {
@@ -34,8 +35,8 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove }: 
     setSearching(true);
     const { data } = await supabase
       .from("public_profiles")
-      .select("user_id, full_name, university")
-      .ilike("full_name", `%${q.trim()}%`)
+      .select("user_id, full_name, university, username")
+      .or(`full_name.ilike.%${q.trim()}%, username.ilike.%${q.trim()}%`)
       .neq("user_id", user?.id ?? "")
       .limit(10);
     setResults(data || []);
