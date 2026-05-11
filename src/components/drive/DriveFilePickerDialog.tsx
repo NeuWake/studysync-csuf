@@ -247,8 +247,16 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
             </div>
           </>
         )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div className="text-xs text-muted-foreground self-center">
+            {selectedList.length > 0 ? `${selectedList.length} selected` : "No files selected"}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={confirmAttachAll} disabled={selectedList.length === 0}>
+              Attach {selectedList.length || ""} {selectedList.length === 1 ? "file" : "files"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
 
