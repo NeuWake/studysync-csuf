@@ -210,11 +210,35 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
                   {files.map((f) => {
                     const isFolder = f.mimeType === "application/vnd.google-apps.folder";
                     const Icon = isFolder ? FolderOpen : FileText;
+                    const isSelected = !!selected[f.id];
                     return (
-                      <li key={f.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/40 cursor-pointer" onClick={() => handleClick(f)}>
+                      <li
+                        key={f.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-accent/40 cursor-pointer"
+                        onClick={() => isFolder ? openFolder(f) : toggleSelect(f)}
+                      >
+                        {isFolder ? (
+                          <span className="w-4 h-4 shrink-0" />
+                        ) : (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(f)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
                         <Icon className="h-4 w-4 text-primary shrink-0" />
                         <div className="min-w-0 flex-1 truncate text-sm">{f.name}</div>
-                        {!isFolder && <span className="text-xs text-muted-foreground">Select</span>}
+                        {!isFolder && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => { e.stopPropagation(); setPreview(f); }}
+                            title="Preview"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
                       </li>
                     );
                   })}
