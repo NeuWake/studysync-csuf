@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown, Paperclip, ExternalLink, X } from "lucide-react";
-import { DriveFilePickerDialog, type PickedDriveFile } from "@/components/drive/DriveFilePickerDialog";
+import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
@@ -21,29 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 
 type Status = "pending" | "in-progress" | "completed" | "missed";
 
-function friendlyMime(mime: string): string {
-  const map: Record<string, string> = {
-    "application/vnd.google-apps.document": "Google Doc",
-    "application/vnd.google-apps.spreadsheet": "Google Sheet",
-    "application/vnd.google-apps.presentation": "Google Slides",
-    "application/vnd.google-apps.folder": "Folder",
-    "application/pdf": "PDF",
-    "text/plain": "Text",
-    "text/csv": "CSV",
-    "application/zip": "ZIP",
-    "application/msword": "Word",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word",
-    "application/vnd.ms-excel": "Excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel",
-    "application/vnd.ms-powerpoint": "PowerPoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint",
-  };
-  if (map[mime]) return map[mime];
-  if (mime.startsWith("image/")) return `Image (${mime.slice(6).toUpperCase()})`;
-  if (mime.startsWith("video/")) return `Video (${mime.slice(6).toUpperCase()})`;
-  if (mime.startsWith("audio/")) return `Audio (${mime.slice(6).toUpperCase()})`;
-  return mime;
-}
 
 const statusConfig: Record<Status, { label: string; icon: React.ElementType; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", icon: Circle, variant: "outline" },
@@ -62,52 +38,6 @@ export default function AssignmentsPage() {
   const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
-  const [pickerForAssignmentId, setPickerForAssignmentId] = useState<string | null>(null);
-
-  const { data: attachments = [] } = useQuery({
-    queryKey: ["task-attachments", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("task_attachments")
-        .select("id, assignment_id, file_name, file_url, file_size, created_at, mime_type, owner_name, modified_time")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const attachMutation = useMutation({
-    mutationFn: async ({ assignmentId, files }: { assignmentId: string; files: PickedDriveFile[] }) => {
-      const rows = files.map((file) => ({
-        user_id: user!.id,
-        assignment_id: assignmentId,
-        file_name: file.name,
-        file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
-        file_size: file.size ? Number(file.size) : null,
-        mime_type: file.mimeType || null,
-        owner_name: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || null,
-        modified_time: file.modifiedTime || null,
-      }));
-      const { error } = await supabase.from("task_attachments").insert(rows);
-      if (error) throw error;
-      return rows.length;
-    },
-    onSuccess: (count) => {
-      toast({ title: "Attached", description: `${count} Drive file${count === 1 ? "" : "s"} linked to assignment.` });
-      queryClient.invalidateQueries({ queryKey: ["task-attachments"] });
-    },
-    onError: (e: Error) => toast({ title: "Couldn't attach", description: e.message, variant: "destructive" }),
-  });
-
-  const removeAttachmentMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("task_attachments").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-attachments"] }),
-  });
 
   // Load saved course filter preference
   useEffect(() => {
@@ -450,15 +380,6 @@ export default function AssignmentsPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary"
-                        title="Attach Google Drive file"
-                        onClick={() => setPickerForAssignmentId(assign.id)}
-                      >
-                        <Paperclip className="h-4 w-4" />
-                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
@@ -482,43 +403,6 @@ export default function AssignmentsPage() {
                       </AlertDialog>
                     </div>
                   </div>
-                  {(() => {
-                    const atts = attachments.filter((at: any) => at.assignment_id === assign.id);
-                    if (atts.length === 0) return null;
-                    return (
-                      <div className="mt-3 pt-3 border-t space-y-2">
-                        {atts.map((at: any) => {
-                          const meta: string[] = [];
-                          if (at.mime_type) meta.push(friendlyMime(at.mime_type));
-                          if (at.owner_name) meta.push(`by ${at.owner_name}`);
-                          if (at.modified_time) meta.push(`modified ${new Date(at.modified_time).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`);
-                          return (
-                            <div key={at.id} className="flex items-start gap-2 text-xs">
-                              <Paperclip className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
-                              <div className="min-w-0 flex-1">
-                                <a href={at.file_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary truncate inline-flex items-center gap-1 max-w-full">
-                                  <span className="truncate">{at.file_name}</span>
-                                  <ExternalLink className="h-3 w-3 shrink-0" />
-                                </a>
-                                {meta.length > 0 && (
-                                  <div className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">
-                                    {meta.join(" · ")}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => removeAttachmentMutation.mutate(at.id)}
-                                className="text-muted-foreground hover:text-destructive shrink-0"
-                                title="Remove attachment"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
                 </CardContent>
               </Card>
             );
@@ -567,14 +451,6 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      <DriveFilePickerDialog
-        open={!!pickerForAssignmentId}
-        onOpenChange={(v) => { if (!v) setPickerForAssignmentId(null); }}
-        onPick={(files) => {
-          if (pickerForAssignmentId && files.length) attachMutation.mutate({ assignmentId: pickerForAssignmentId, files });
-          setPickerForAssignmentId(null);
-        }}
-      />
     </div>
   );
 }
