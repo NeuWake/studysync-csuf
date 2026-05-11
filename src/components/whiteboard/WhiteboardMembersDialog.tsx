@@ -48,7 +48,7 @@ export default function WhiteboardMembersDialog({
       const userIds = (data || []).map((m) => m.user_id);
       if (!userIds.length) return [];
       const { data: profiles } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("user_id, full_name")
         .in("user_id", userIds);
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) || []);

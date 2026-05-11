@@ -158,7 +158,7 @@ export default function ChatPage() {
       const userIds = [...new Set(chronological.map((m) => m.user_id))];
       if (!userIds.length) return chronological;
       const { data: profiles } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("user_id, full_name")
         .in("user_id", userIds);
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
@@ -178,7 +178,7 @@ export default function ChatPage() {
       }, async (payload) => {
         const newMsg = payload.new as Message;
         const { data: profile } = await supabase
-          .from("profiles").select("user_id, full_name")
+          .from("public_profiles").select("user_id, full_name")
           .eq("user_id", newMsg.user_id).maybeSingle();
         newMsg.profile = profile;
         shouldScrollRef.current = true;

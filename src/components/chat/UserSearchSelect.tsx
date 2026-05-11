@@ -33,7 +33,7 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove }: 
     }
     setSearching(true);
     const { data } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("user_id, full_name, university")
       .ilike("full_name", `%${q.trim()}%`)
       .neq("user_id", user?.id ?? "")
