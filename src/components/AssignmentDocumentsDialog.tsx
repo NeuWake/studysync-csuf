@@ -181,29 +181,70 @@ export function AssignmentDocumentsDialog({ userAssignmentId, assignmentTitle, o
           ) : docs.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No documents yet.</p>
           ) : (
-            docs.map((d: any) => (
-              <div key={d.id} className="flex items-center gap-2 p-2 rounded-md border bg-muted/30">
-                <FileText className="h-4 w-4 text-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{d.file_name}</p>
-                  <p className="text-xs text-muted-foreground">{formatSize(d.file_size)}</p>
+            docs.map((d: any) => {
+              const previewable = isPreviewable(d.file_type, d.file_name);
+              const Icon = isImage(d.file_type, d.file_name) ? ImageIcon : FileText;
+              return (
+                <div key={d.id} className="flex items-center gap-2 p-2 rounded-md border bg-muted/30">
+                  <Icon className="h-4 w-4 text-primary shrink-0" />
+                  <button
+                    type="button"
+                    onClick={() => previewable ? openPreview(d) : downloadDoc(d)}
+                    className="flex-1 min-w-0 text-left hover:underline"
+                  >
+                    <p className="text-sm font-medium truncate">{d.file_name}</p>
+                    <p className="text-xs text-muted-foreground">{formatSize(d.file_size)}</p>
+                  </button>
+                  {previewable && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPreview(d)} title="Preview">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => downloadDoc(d)} title="Download">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteMutation.mutate(d)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => downloadDoc(d)}>
-                  <Download className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => deleteMutation.mutate(d)}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
+
+        {/* Inline preview dialog */}
+        <Dialog open={!!previewDoc} onOpenChange={(o) => !o && closePreview()}>
+          <DialogContent className="max-w-4xl w-[95vw] h-[85vh] flex flex-col p-4">
+            <DialogHeader className="flex-row items-center justify-between gap-2 space-y-0">
+              <DialogTitle className="truncate text-base">{previewDoc?.file_name}</DialogTitle>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => previewDoc && downloadDoc(previewDoc)} title="Download">
+                  <Download className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closePreview} title="Close">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </DialogHeader>
+            <div className="flex-1 min-h-0 rounded-md overflow-hidden bg-muted/40 flex items-center justify-center">
+              {previewLoading || !previewUrl ? (
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              ) : isImage(previewDoc?.file_type, previewDoc?.file_name) ? (
+                <img src={previewUrl} alt={previewDoc?.file_name} className="max-h-full max-w-full object-contain" />
+              ) : isPdf(previewDoc?.file_type, previewDoc?.file_name) ? (
+                <iframe src={previewUrl} title={previewDoc?.file_name} className="w-full h-full border-0" />
+              ) : (
+                <p className="text-sm text-muted-foreground">Preview not supported.</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
