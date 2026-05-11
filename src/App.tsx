@@ -15,6 +15,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import AssignmentsPage from "@/pages/AssignmentsPage";
 import ChatPage from "@/pages/ChatPage";
 import AIChatPage from "@/pages/AIChatPage";
+import GradeCalculatorPage from "@/pages/GradeCalculatorPage";
 import WhiteboardPage from "@/pages/WhiteboardPage";
 import StatsPage from "@/pages/StatsPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -62,6 +63,7 @@ const App = () => (
                 <Route path="/assignments" element={<AssignmentsPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/ai-chat" element={<AIChatPage />} />
+                <Route path="/grade-calculator" element={<GradeCalculatorPage />} />
                 <Route path="/whiteboard" element={<WhiteboardPage />} />
                 <Route path="/drive" element={<Navigate to="/assignments" replace />} />
                 <Route path="/stats" element={<StatsPage />} />
