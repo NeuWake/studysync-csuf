@@ -11,7 +11,7 @@ interface UserResult {
   user_id: string;
   full_name: string | null;
   university: string | null;
-  username: string | null;
+  username?: string | null;
 }
 
 interface UserSearchSelectProps {
