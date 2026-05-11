@@ -99,6 +99,9 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove }: 
                     </Avatar>
                     <div>
                       <p className="text-sm font-medium text-foreground">{r.full_name || "Unknown"}</p>
+                      {r.username && (
+                        <p className="text-xs text-muted-foreground">@{r.username}</p>
+                      )}
                       {r.university && <p className="text-xs text-muted-foreground">{r.university}</p>}
                     </div>
                   </button>
