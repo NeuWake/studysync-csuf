@@ -53,7 +53,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
       const userIds = mems.map((m) => m.user_id);
       const { data: profiles } = await supabase
         .from("public_profiles")
-        .select("user_id, full_name, university")
+        .select("user_id, full_name, university, username")
         .in("user_id", userIds);
       return profiles || [];
     },
