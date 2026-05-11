@@ -243,8 +243,17 @@ export default function AuthPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex flex-col gap-2">
                 <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating account..." : "Create Account"}</Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-xs h-auto py-1"
+                  onClick={() => handleResendConfirmation()}
+                  disabled={loading || !email}
+                >
+                  Resend confirmation email
+                </Button>
               </CardFooter>
             </form>
           </TabsContent>
