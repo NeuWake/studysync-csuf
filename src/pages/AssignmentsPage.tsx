@@ -462,6 +462,15 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
+      {docsFor && (
+        <AssignmentDocumentsDialog
+          userAssignmentId={docsFor.id}
+          assignmentTitle={docsFor.title}
+          open={!!docsFor}
+          onOpenChange={(o) => !o && setDocsFor(null)}
+        />
+      )}
+
     </div>
   );
 }
