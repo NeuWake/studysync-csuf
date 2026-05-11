@@ -130,21 +130,39 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
 
   useEffect(() => { if (open && token) void fetchFiles(); }, [open, token, fetchFiles]);
 
-  const handleClick = (f: PickedDriveFile) => {
-    if (f.mimeType === "application/vnd.google-apps.folder") {
-      setSearch("");
-      setStack((s) => [...s, { id: f.id, name: f.name }]);
-    } else {
-      setPreview(f);
-    }
+  const openFolder = (f: PickedDriveFile) => {
+    setSearch("");
+    setStack((s) => [...s, { id: f.id, name: f.name }]);
   };
 
-  const confirmAttach = () => {
-    if (!preview) return;
-    onPick(preview);
+  const toggleSelect = (f: PickedDriveFile) => {
+    setSelected((cur) => {
+      const next = { ...cur };
+      if (next[f.id]) delete next[f.id]; else next[f.id] = f;
+      return next;
+    });
+  };
+
+  const selectedList = Object.values(selected);
+
+  const confirmAttachAll = () => {
+    if (selectedList.length === 0) return;
+    onPick(selectedList);
+    setSelected({});
     setPreview(null);
     onOpenChange(false);
   };
+
+  const confirmAttachPreview = () => {
+    if (!preview) return;
+    onPick([preview]);
+    setSelected({});
+    setPreview(null);
+    onOpenChange(false);
+  };
+
+  // Reset selection when the dialog closes.
+  useEffect(() => { if (!open) { setSelected({}); setPreview(null); } }, [open]);
 
   // Drive's /preview endpoint embeds PDFs, Docs, Sheets, Slides, images, video, and most common doc types.
   const previewSrc = preview ? `https://drive.google.com/file/d/${preview.id}/preview` : "";
