@@ -489,11 +489,11 @@ export default function ChatPage() {
                   <div className="flex items-start gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                        {room.type === "dm" ? (room.name?.[0] || "?") : <Users className="h-4 w-4" />}
+                        {room.type === "dm" ? ((room.display_name || room.name)?.[0] || "?") : <Users className="h-4 w-4" />}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{room.name || "Unnamed"}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{room.display_name || room.name || "Unnamed"}</p>
                       <p className="text-xs text-muted-foreground capitalize">{room.type.replace("_", " ")}</p>
                     </div>
                     {unreadRooms.has(room.id) && (
