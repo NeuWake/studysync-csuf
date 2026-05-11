@@ -128,10 +128,15 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
+      // Close dialogs and bubble up so the parent can null selectedRoom,
+      // which causes the realtime channel effect to clean up its subscription.
       setConfirmDeleteChat(false);
       onOpenChange(false);
       onLeft?.();
+      // Clear stale per-room caches so no orphaned data lingers
+      queryClient.removeQueries({ queryKey: ["messages", chatroomId] });
+      queryClient.removeQueries({ queryKey: ["chatroom-members", chatroomId] });
+      queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
       toast({ title: "Chat deleted" });
     },
     onError: (err: any) => {
