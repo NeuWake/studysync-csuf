@@ -113,10 +113,38 @@ export default function ChatPage() {
         .in("id", ids)
         .order("created_at", { ascending: false });
       if (crErr) throw crErr;
-      return chatrooms || [];
+      const list = chatrooms || [];
+
+      // For DMs, override the displayed name with the OTHER member's name
+      const dmIds = list.filter((r: any) => r.type === "dm").map((r: any) => r.id);
+      const dmNameMap = new Map<string, string>();
+      if (dmIds.length) {
+        const { data: dmMembers } = await supabase
+          .from("chatroom_members")
+          .select("chatroom_id, user_id")
+          .in("chatroom_id", dmIds)
+          .neq("user_id", user.id);
+        const otherIds = [...new Set((dmMembers || []).map((m) => m.user_id))];
+        if (otherIds.length) {
+          const { data: profs } = await supabase
+            .from("public_profiles")
+            .select("user_id, full_name")
+            .in("user_id", otherIds);
+          const profMap = new Map((profs || []).map((p) => [p.user_id, p.full_name]));
+          (dmMembers || []).forEach((m) => {
+            const name = profMap.get(m.user_id);
+            if (name) dmNameMap.set(m.chatroom_id, name);
+          });
+        }
+      }
+      return list.map((r: any) => ({
+        ...r,
+        display_name: r.type === "dm" ? (dmNameMap.get(r.id) || r.name) : r.name,
+      }));
     },
     enabled: !!user,
   });
+
 
   // Fetch pending invitation count
   const { data: pendingInviteCount = 0 } = useQuery({
@@ -365,7 +393,7 @@ export default function ChatPage() {
 
   const selectedRoomData = rooms.find((r: any) => r.id === selectedRoom);
   const filteredRooms = rooms.filter((r: any) =>
-    !searchQuery || r.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery || (r.display_name || r.name)?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -461,11 +489,11 @@ export default function ChatPage() {
                   <div className="flex items-start gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                        {room.type === "dm" ? (room.name?.[0] || "?") : <Users className="h-4 w-4" />}
+                        {room.type === "dm" ? ((room.display_name || room.name)?.[0] || "?") : <Users className="h-4 w-4" />}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{room.name || "Unnamed"}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{room.display_name || room.name || "Unnamed"}</p>
                       <p className="text-xs text-muted-foreground capitalize">{room.type.replace("_", " ")}</p>
                     </div>
                     {unreadRooms.has(room.id) && (
@@ -508,11 +536,11 @@ export default function ChatPage() {
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                    {selectedRoomData?.type === "dm" ? (selectedRoomData?.name?.[0] || "?") : <Users className="h-4 w-4" />}
+                    {selectedRoomData?.type === "dm" ? ((selectedRoomData?.display_name || selectedRoomData?.name)?.[0] || "?") : <Users className="h-4 w-4" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-medium text-sm text-foreground">{selectedRoomData?.name || "Chat"}</p>
+                  <p className="font-medium text-sm text-foreground">{selectedRoomData?.display_name || selectedRoomData?.name || "Chat"}</p>
                   <p className="text-xs text-muted-foreground capitalize">{selectedRoomData?.type?.replace("_", " ")}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setMembersOpen(true)}>
