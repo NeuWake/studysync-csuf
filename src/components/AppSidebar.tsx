@@ -12,6 +12,7 @@ import {
   Volume2,
   VolumeOff,
   Sparkles,
+  Calculator,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
