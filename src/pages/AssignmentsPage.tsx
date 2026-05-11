@@ -462,23 +462,36 @@ export default function AssignmentsPage() {
                     const atts = attachments.filter((at: any) => at.assignment_id === assign.id);
                     if (atts.length === 0) return null;
                     return (
-                      <div className="mt-3 pt-3 border-t space-y-1">
-                        {atts.map((at: any) => (
-                          <div key={at.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Paperclip className="h-3 w-3 shrink-0" />
-                            <a href={at.file_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate flex items-center gap-1">
-                              {at.file_name}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                            <button
-                              onClick={() => removeAttachmentMutation.mutate(at.id)}
-                              className="ml-auto hover:text-destructive"
-                              title="Remove attachment"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
+                      <div className="mt-3 pt-3 border-t space-y-2">
+                        {atts.map((at: any) => {
+                          const meta: string[] = [];
+                          if (at.mime_type) meta.push(friendlyMime(at.mime_type));
+                          if (at.owner_name) meta.push(`by ${at.owner_name}`);
+                          if (at.modified_time) meta.push(`modified ${new Date(at.modified_time).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`);
+                          return (
+                            <div key={at.id} className="flex items-start gap-2 text-xs">
+                              <Paperclip className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
+                              <div className="min-w-0 flex-1">
+                                <a href={at.file_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary truncate inline-flex items-center gap-1 max-w-full">
+                                  <span className="truncate">{at.file_name}</span>
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                </a>
+                                {meta.length > 0 && (
+                                  <div className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">
+                                    {meta.join(" · ")}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => removeAttachmentMutation.mutate(at.id)}
+                                className="text-muted-foreground hover:text-destructive shrink-0"
+                                title="Remove attachment"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })()}
