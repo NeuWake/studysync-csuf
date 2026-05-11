@@ -1,5 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   GraduationCap,
@@ -97,6 +103,9 @@ export default function HomePage() {
             <Button asChild size="lg" variant="outline">
               <a href="#features">See features</a>
             </Button>
+            <Button asChild size="lg" variant="ghost">
+              <a href="#faq">FAQ</a>
+            </Button>
           </div>
         </div>
       </section>
@@ -147,6 +156,72 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="py-20 md:py-28">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">Frequently asked questions</h2>
+            <p className="text-muted-foreground">Everything you need to know about Canvas sync, privacy, and working with classmates.</p>
+          </div>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="canvas-1">
+              <AccordionTrigger>How does Canvas sync work?</AccordionTrigger>
+              <AccordionContent>
+                During onboarding you paste a personal Canvas access token. StudySync uses it to pull your active courses and assignments — including titles, due dates, and points — into your dashboard and calendar. New assignments appear automatically on each refresh.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="canvas-2">
+              <AccordionTrigger>Will StudySync submit assignments or change my grades?</AccordionTrigger>
+              <AccordionContent>
+                No. We only request read access to your courses and assignments. StudySync never submits work, posts to discussions, or modifies anything in Canvas.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="canvas-3">
+              <AccordionTrigger>Can I use StudySync without Canvas?</AccordionTrigger>
+              <AccordionContent>
+                Absolutely. You can skip Canvas onboarding and create assignments and tasks manually. You can connect Canvas later from your profile any time.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="privacy-1">
+              <AccordionTrigger>Where is my data stored and who can see it?</AccordionTrigger>
+              <AccordionContent>
+                Your data lives in an encrypted backend with row-level security, meaning only you can read your assignments, files, and notes. Classmates only see content you explicitly share with them through chats or whiteboards.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="privacy-2">
+              <AccordionTrigger>How is my Canvas token protected?</AccordionTrigger>
+              <AccordionContent>
+                Your Canvas token is stored encrypted in your private user record and is never exposed to other users. You can revoke it at any time from your profile or directly in Canvas.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="privacy-3">
+              <AccordionTrigger>Do you sell or share my data?</AccordionTrigger>
+              <AccordionContent>
+                Never. StudySync does not sell, rent, or share your personal data with third parties. We only use it to power features inside the app.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="collab-1">
+              <AccordionTrigger>How do I collaborate with classmates?</AccordionTrigger>
+              <AccordionContent>
+                Search for classmates by name or email and invite them to a chat or whiteboard. Once they accept, you can message in real time, share files from Drive, and brainstorm together on a shared canvas.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="collab-2">
+              <AccordionTrigger>Can other people see my assignments?</AccordionTrigger>
+              <AccordionContent>
+                No. Assignments and tasks are private to you. Collaboration happens only inside chats and whiteboards you choose to create or join.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="collab-3">
+              <AccordionTrigger>Can I leave or remove members from a group?</AccordionTrigger>
+              <AccordionContent>
+                Yes. Group chats and whiteboards have member management — owners can remove members, and any member can leave at any time.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </section>
 
