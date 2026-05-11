@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown } from "lucide-react";
+import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown, Paperclip, ExternalLink, X } from "lucide-react";
+import { DriveFilePickerDialog, type PickedDriveFile } from "@/components/drive/DriveFilePickerDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
@@ -37,6 +38,48 @@ export default function AssignmentsPage() {
   const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
+  const [pickerForAssignmentId, setPickerForAssignmentId] = useState<string | null>(null);
+
+  const { data: attachments = [] } = useQuery({
+    queryKey: ["task-attachments", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_attachments")
+        .select("id, assignment_id, file_name, file_url, file_size, created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const attachMutation = useMutation({
+    mutationFn: async ({ assignmentId, file }: { assignmentId: string; file: PickedDriveFile }) => {
+      const url = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
+      const { error } = await supabase.from("task_attachments").insert({
+        user_id: user!.id,
+        assignment_id: assignmentId,
+        file_name: file.name,
+        file_url: url,
+        file_size: file.size ? Number(file.size) : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Attached", description: "Drive file linked to assignment." });
+      queryClient.invalidateQueries({ queryKey: ["task-attachments"] });
+    },
+    onError: (e: Error) => toast({ title: "Couldn't attach", description: e.message, variant: "destructive" }),
+  });
+
+  const removeAttachmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("task_attachments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-attachments"] }),
+  });
 
   // Load saved course filter preference
   useEffect(() => {
@@ -379,6 +422,15 @@ export default function AssignmentsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        title="Attach Google Drive file"
+                        onClick={() => setPickerForAssignmentId(assign.id)}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
@@ -402,6 +454,30 @@ export default function AssignmentsPage() {
                       </AlertDialog>
                     </div>
                   </div>
+                  {(() => {
+                    const atts = attachments.filter((at: any) => at.assignment_id === assign.id);
+                    if (atts.length === 0) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t space-y-1">
+                        {atts.map((at: any) => (
+                          <div key={at.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Paperclip className="h-3 w-3 shrink-0" />
+                            <a href={at.file_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate flex items-center gap-1">
+                              {at.file_name}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            <button
+                              onClick={() => removeAttachmentMutation.mutate(at.id)}
+                              className="ml-auto hover:text-destructive"
+                              title="Remove attachment"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
@@ -449,6 +525,15 @@ export default function AssignmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DriveFilePickerDialog
+        open={!!pickerForAssignmentId}
+        onOpenChange={(v) => { if (!v) setPickerForAssignmentId(null); }}
+        onPick={(file) => {
+          if (pickerForAssignmentId) attachMutation.mutate({ assignmentId: pickerForAssignmentId, file });
+          setPickerForAssignmentId(null);
+        }}
+      />
     </div>
   );
 }
