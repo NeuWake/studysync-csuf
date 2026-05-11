@@ -43,11 +43,39 @@ export default function NotesPage() {
   const [manageSharesOpen, setManageSharesOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [collabIds, setCollabIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "mine" | "shared" | "public">("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
 
   const active = useMemo(() => notes.find((n) => n.id === activeId) ?? null, [notes, activeId]);
   const isOwner = active && user && active.user_id === user.id;
+
+  // Extract plain text from a TipTap JSON doc for full-text search
+  const extractText = (node: any): string => {
+    if (!node) return "";
+    if (typeof node === "string") return node;
+    if (Array.isArray(node)) return node.map(extractText).join(" ");
+    let out = "";
+    if (typeof node.text === "string") out += node.text + " ";
+    if (node.content) out += extractText(node.content);
+    return out;
+  };
+
+  const filteredNotes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return notes.filter((n) => {
+      // Filter by ownership/sharing
+      if (filter === "mine" && (!user || n.user_id !== user.id)) return false;
+      if (filter === "shared" && (!user || n.user_id === user.id)) return false;
+      if (filter === "public" && !n.share_enabled) return false;
+      if (!q) return true;
+      const title = (n.title || "").toLowerCase();
+      if (title.includes(q)) return true;
+      const body = extractText(n.content).toLowerCase();
+      return body.includes(q);
+    });
+  }, [notes, search, filter, user?.id]);
 
   const loadNotes = async () => {
     if (!user) return;
