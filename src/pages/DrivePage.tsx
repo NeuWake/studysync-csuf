@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { GOOGLE_DRIVE_SCOPE, GOOGLE_OAUTH_CLIENT_ID } from "@/config/google";
+import { getStandaloneConnectUrl, isEmbeddedPreview } from "@/lib/googleDriveOAuth";
 import {
   FolderOpen,
   FileText,
@@ -157,6 +158,14 @@ export default function DrivePage() {
   }, [gisReady, clientIdConfigured, toast]);
 
   const connectDrive = () => {
+    if (isEmbeddedPreview()) {
+      const win = window.open(getStandaloneConnectUrl(), "_blank", "noopener,noreferrer");
+      if (!win) {
+        toast({ title: "Popup blocked", description: "Open the preview in a new tab, then connect Google Drive.", variant: "destructive" });
+      }
+      return;
+    }
+
     const client = initTokenClient();
     if (!client) {
       toast({ title: "Not ready", description: "Google sign-in is still loading or not configured.", variant: "destructive" });
