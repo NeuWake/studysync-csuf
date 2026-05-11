@@ -39,7 +39,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { markRoomRead } = useChatNotifications();
+  const { markRoomRead, notifyChatDeleted } = useChatNotifications();
   const [usersToAdd, setUsersToAdd] = useState<UserResult[]>([]);
   const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
@@ -131,8 +131,9 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
       if (error) throw error;
     },
     onSuccess: () => {
-      // Clear unread badge for this room immediately
+      // Clear unread badge for this room immediately + notify other tabs
       markRoomRead(chatroomId);
+      notifyChatDeleted(chatroomId);
       // Close dialogs and bubble up so the parent can null selectedRoom,
       // which causes the realtime channel effect to clean up its subscription.
       setConfirmDeleteChat(false);
