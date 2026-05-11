@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown, Paperclip } from "lucide-react";
 import { AssignmentDocumentsDialog } from "@/components/AssignmentDocumentsDialog";
+import { AssignmentDocumentsInline } from "@/components/AssignmentDocumentsInline";
+import { ChevronRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
@@ -41,6 +43,7 @@ export default function AssignmentsPage() {
   const [docsFor, setDocsFor] = useState<{ id: string; title: string } | null>(null);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
   const [liveProgress, setLiveProgress] = useState<Record<string, number>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // Load saved course filter preference
   useEffect(() => {
@@ -348,8 +351,14 @@ export default function AssignmentsPage() {
               <Card key={a.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex-1 min-w-[200px]">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((p) => ({ ...p, [a.id]: !p[a.id] }))}
+                      className="flex-1 min-w-[200px] text-left"
+                      aria-expanded={!!expanded[a.id]}
+                    >
                       <div className="flex items-center gap-2 mb-1">
+                        <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${expanded[a.id] ? "rotate-90" : ""}`} />
                         {assign.course?.color && (
                           <div className="h-3 w-3 rounded-full" style={{ backgroundColor: assign.course.color }} />
                         )}
@@ -364,7 +373,7 @@ export default function AssignmentsPage() {
                         <span className="capitalize">{assign.assignment_type}</span>
                         {assign.max_points && <><span>•</span><span>{assign.max_points} pts</span></>}
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-3">
                       <div className="w-36">
                         <Slider
@@ -442,6 +451,9 @@ export default function AssignmentsPage() {
                       </AlertDialog>
                     </div>
                   </div>
+                  {expanded[a.id] && (
+                    <AssignmentDocumentsInline userAssignmentId={a.id} />
+                  )}
                 </CardContent>
               </Card>
             );
