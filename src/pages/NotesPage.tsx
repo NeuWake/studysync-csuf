@@ -9,6 +9,7 @@ import { NoteEditor } from "@/components/notes/NoteEditor";
 import { ShareNoteDialog } from "@/components/notes/ShareNoteDialog";
 import { ShareManagerDialog } from "@/components/notes/ShareManagerDialog";
 import { exportNoteToPdf } from "@/lib/exportNotePdf";
+import { NotePresence } from "@/components/notes/NotePresence";
 import {
   AlertDialog,
   AlertDialogAction,
