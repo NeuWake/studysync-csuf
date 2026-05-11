@@ -33,6 +33,8 @@ export interface PickedDriveFile {
   mimeType: string;
   webViewLink?: string;
   size?: string;
+  modifiedTime?: string;
+  owners?: { displayName?: string; emailAddress?: string }[];
 }
 
 interface Props {
