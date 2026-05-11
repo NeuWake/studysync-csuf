@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import UserSearchSelect from "./UserSearchSelect";
+import { useChatNotifications } from "@/contexts/ChatNotificationContext";
 
 interface ChatMembersDialogProps {
   open: boolean;
@@ -38,6 +39,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { markRoomRead } = useChatNotifications();
   const [usersToAdd, setUsersToAdd] = useState<UserResult[]>([]);
   const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
@@ -91,6 +93,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
       if (error) throw error;
     },
     onSuccess: () => {
+      markRoomRead(chatroomId);
       queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
       queryClient.invalidateQueries({ queryKey: ["chatroom-members", chatroomId] });
       onOpenChange(false);
@@ -128,6 +131,8 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
       if (error) throw error;
     },
     onSuccess: () => {
+      // Clear unread badge for this room immediately
+      markRoomRead(chatroomId);
       // Close dialogs and bubble up so the parent can null selectedRoom,
       // which causes the realtime channel effect to clean up its subscription.
       setConfirmDeleteChat(false);
