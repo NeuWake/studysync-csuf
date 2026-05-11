@@ -51,7 +51,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { signOut } = useAuth();
-  const { hasUnread, chimeMuted, toggleChimeMute } = useChatNotifications();
+  const { hasUnread, unreadRooms, chimeMuted, toggleChimeMute } = useChatNotifications();
+  const unreadCount = unreadRooms.size;
 
   return (
     <Sidebar collapsible="icon">
