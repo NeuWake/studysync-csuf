@@ -30,15 +30,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (pendingEmail) return <Navigate to="/confirm-email" replace />;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (pendingEmail || !user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, pendingEmail } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return null;
-  if (pendingEmail) return <Navigate to="/confirm-email" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
