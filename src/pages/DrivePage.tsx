@@ -18,6 +18,10 @@ import {
   ExternalLink,
   LogIn,
   LogOut,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ShieldCheck,
 } from "lucide-react";
 
 // Google Identity Services types (kept inline — minimal surface we need).
