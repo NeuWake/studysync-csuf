@@ -373,7 +373,7 @@ export default function AssignmentsPage() {
                         <span className="capitalize">{assign.assignment_type}</span>
                         {assign.max_points && <><span>•</span><span>{assign.max_points} pts</span></>}
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-3">
                       <div className="w-36">
                         <Slider
@@ -451,6 +451,9 @@ export default function AssignmentsPage() {
                       </AlertDialog>
                     </div>
                   </div>
+                  {expanded[a.id] && (
+                    <AssignmentDocumentsInline userAssignmentId={a.id} />
+                  )}
                 </CardContent>
               </Card>
             );
