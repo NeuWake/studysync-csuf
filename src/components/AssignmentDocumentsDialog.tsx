@@ -121,6 +121,27 @@ export function AssignmentDocumentsDialog({ userAssignmentId, assignmentTitle, o
     window.open(data.signedUrl, "_blank");
   };
 
+  const openPreview = async (doc: any) => {
+    setPreviewDoc(doc);
+    setPreviewUrl(null);
+    setPreviewLoading(true);
+    const { data, error } = await supabase.storage
+      .from("task-attachments")
+      .createSignedUrl(doc.storage_path, 60 * 10);
+    setPreviewLoading(false);
+    if (error || !data) {
+      toast({ title: "Preview failed", description: error?.message, variant: "destructive" });
+      setPreviewDoc(null);
+      return;
+    }
+    setPreviewUrl(data.signedUrl);
+  };
+
+  const closePreview = () => {
+    setPreviewDoc(null);
+    setPreviewUrl(null);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
