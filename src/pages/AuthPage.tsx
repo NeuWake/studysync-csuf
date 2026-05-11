@@ -139,6 +139,30 @@ export default function AuthPage() {
           <CardTitle className="text-2xl">StudySync</CardTitle>
           <CardDescription>Your assignment tracking & collaboration hub</CardDescription>
         </CardHeader>
+        {pendingEmail && (
+          <div className="px-6 pb-2">
+            <Alert>
+              <MailCheck className="h-4 w-4" />
+              <AlertTitle>Confirm your email to continue</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>
+                  We blocked your session because <span className="font-medium text-foreground">{pendingEmail}</span> isn't verified yet
+                  {pendingProvider && pendingProvider !== "email" ? ` (signed in via ${pendingProvider})` : ""}.
+                  Click the link in your inbox, or resend it below.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleResendConfirmation(pendingEmail)}
+                  disabled={loading || (pendingProvider !== null && pendingProvider !== "email")}
+                >
+                  {loading ? "Sending..." : "Resend confirmation email"}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mx-auto max-w-[90%]">
             <TabsTrigger value="login">Login</TabsTrigger>
