@@ -166,9 +166,20 @@ export default function NotesPage() {
       {/* Sidebar list */}
       <div className="w-72 shrink-0 flex flex-col rounded-lg border border-border bg-card overflow-hidden">
         <div className="p-3 border-b border-border flex flex-col gap-2">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Notes
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Notes
+            </h2>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setManageSharesOpen(true)}
+              title="Manage public links"
+            >
+              <LinkIcon className="h-3.5 w-3.5 mr-1" /> Links
+            </Button>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" onClick={createNote}>
               <Plus className="h-4 w-4 mr-1" /> New
