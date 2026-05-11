@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState({
     fullName: "",
+    username: "",
     avatarUrl: "" as string,
     university: "California State University, Fullerton",
     major: "",
@@ -42,6 +43,7 @@ export default function ProfilePage() {
       if (profileData) {
         setProfile({
           fullName: profileData.full_name || "",
+          username: (profileData as any).username || "",
           avatarUrl: profileData.avatar_url || "",
           university: profileData.university || "",
           major: profileData.major || "",
@@ -59,20 +61,42 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!user) return;
+
+    const uname = profile.username.trim();
+    if (!uname) {
+      toast({ title: "Username required", variant: "destructive" });
+      return;
+    }
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(uname)) {
+      toast({ title: "Invalid username", description: "3–20 letters, numbers, or underscores.", variant: "destructive" });
+      return;
+    }
+    const fname = profile.fullName.trim().toLowerCase();
+    const tokens = fname.split(/\s+/).filter(Boolean);
+    const unameLc = uname.toLowerCase();
+    if (unameLc === fname || unameLc === fname.replace(/\s+/g, "") || tokens.includes(unameLc)) {
+      toast({ title: "Pick a different username", description: "Username can't match your full name or first/last name.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
       .update({
         full_name: profile.fullName,
+        username: uname,
         university: profile.university,
         major: profile.major,
         grad_year: profile.gradYear ? parseInt(profile.gradYear) : null,
         study_interests: profile.studyInterests,
-      })
+      } as any)
       .eq("user_id", user.id);
 
     if (error) {
-      toast({ title: "Error saving profile", description: error.message, variant: "destructive" });
+      const msg = error.message.includes("profiles_username_lower_uniq")
+        ? "That username is already taken."
+        : error.message;
+      toast({ title: "Error saving profile", description: msg, variant: "destructive" });
     } else {
       toast({ title: "Profile saved!" });
     }
@@ -220,6 +244,16 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <Label>Full Name</Label>
               <Input value={profile.fullName} onChange={(e) => setProfile({ ...profile, fullName: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Username</Label>
+              <Input
+                value={profile.username}
+                onChange={(e) => setProfile({ ...profile, username: e.target.value.replace(/\s+/g, "") })}
+                placeholder="3-20 letters, numbers, _"
+                maxLength={20}
+              />
+              <p className="text-xs text-muted-foreground">Must be unique and different from your name.</p>
             </div>
             <div className="space-y-2">
               <Label>University</Label>
