@@ -39,25 +39,46 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // PKCE recovery flow: exchange ?code= for a session
+      // supabase-js may have already auto-exchanged the ?code= or parsed the
+      // implicit #access_token= on client init. Check for an existing session first
+      // to avoid "invalid/expired code" errors from re-exchanging a consumed code.
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session) {
+        if (code || window.location.hash) {
+          window.history.replaceState(null, "", "/reset-password");
+        }
+        setReady(true);
+        return;
+      }
+
+      // PKCE recovery flow: exchange ?code= for a session if not yet exchanged.
       if (code) {
         const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
         if (exErr) {
+          // Race: the global client may have just consumed the code.
+          const { data: after } = await supabase.auth.getSession();
+          if (after.session) {
+            window.history.replaceState(null, "", "/reset-password");
+            setReady(true);
+            return;
+          }
           setError(exErr.message);
           return;
         }
-        // Clean URL
         window.history.replaceState(null, "", "/reset-password");
         setReady(true);
         return;
       }
 
-      // Implicit flow: #access_token=...&type=recovery — supabase-js parses it automatically.
-      // If we already have a session (from auto-detect), allow update.
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setReady(true);
-      }
+      // No code, no hash, no session — wait briefly for PASSWORD_RECOVERY event;
+      // if it never arrives, surface a clear error.
+      setTimeout(async () => {
+        if (cancelled) return;
+        const { data: late } = await supabase.auth.getSession();
+        if (!late.session) {
+          setError("This password reset link is invalid or has expired. Request a new one.");
+        }
+      }, 1500);
     })();
 
     return () => {
