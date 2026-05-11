@@ -9,6 +9,7 @@ import { NoteEditor } from "@/components/notes/NoteEditor";
 import { ShareNoteDialog } from "@/components/notes/ShareNoteDialog";
 import { ShareManagerDialog } from "@/components/notes/ShareManagerDialog";
 import { exportNoteToPdf } from "@/lib/exportNotePdf";
+import { NotePresence } from "@/components/notes/NotePresence";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,7 @@ export default function NotesPage() {
   const [filter, setFilter] = useState<"all" | "mine" | "shared" | "public">("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
+  const typingPingRef = useRef<(() => void) | null>(null);
 
   const active = useMemo(() => notes.find((n) => n.id === activeId) ?? null, [notes, activeId]);
   const isOwner = active && user && active.user_id === user.id;
@@ -334,11 +336,13 @@ export default function NotesPage() {
                 </span>
               )}
             </div>
+            <NotePresence noteId={active.id} pingRef={typingPingRef} />
             <div className="flex-1 overflow-auto">
               <NoteEditor
                 key={active.id}
                 content={active.content}
                 onChange={(json) => persistChanges(active.id, { content: json })}
+                onTyping={() => typingPingRef.current?.()}
               />
             </div>
           </>
