@@ -21,6 +21,30 @@ import { useToast } from "@/hooks/use-toast";
 
 type Status = "pending" | "in-progress" | "completed" | "missed";
 
+function friendlyMime(mime: string): string {
+  const map: Record<string, string> = {
+    "application/vnd.google-apps.document": "Google Doc",
+    "application/vnd.google-apps.spreadsheet": "Google Sheet",
+    "application/vnd.google-apps.presentation": "Google Slides",
+    "application/vnd.google-apps.folder": "Folder",
+    "application/pdf": "PDF",
+    "text/plain": "Text",
+    "text/csv": "CSV",
+    "application/zip": "ZIP",
+    "application/msword": "Word",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word",
+    "application/vnd.ms-excel": "Excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel",
+    "application/vnd.ms-powerpoint": "PowerPoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint",
+  };
+  if (map[mime]) return map[mime];
+  if (mime.startsWith("image/")) return `Image (${mime.slice(6).toUpperCase()})`;
+  if (mime.startsWith("video/")) return `Video (${mime.slice(6).toUpperCase()})`;
+  if (mime.startsWith("audio/")) return `Audio (${mime.slice(6).toUpperCase()})`;
+  return mime;
+}
+
 const statusConfig: Record<Status, { label: string; icon: React.ElementType; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", icon: Circle, variant: "outline" },
   "in-progress": { label: "In Progress", icon: Clock, variant: "secondary" },
