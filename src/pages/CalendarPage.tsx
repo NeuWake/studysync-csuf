@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ChevronLeft, ChevronRight, Plus, Loader2, MoreHorizontal, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import EventDialog from "@/components/calendar/EventDialog";
 
@@ -29,17 +29,22 @@ async function uploadEventImage(userId: string, file: File): Promise<string> {
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from("event-images").upload(path, file);
   if (error) throw error;
-  // Store the storage path, not a public URL (bucket is now private)
   return path;
 }
 
 async function getSignedImageUrl(path: string): Promise<string | null> {
   if (!path) return null;
-  // If it's already a full URL (legacy), return as-is
   if (path.startsWith("http")) return path;
   const { data, error } = await supabase.storage.from("event-images").createSignedUrl(path, 3600);
   if (error) return null;
   return data.signedUrl;
+}
+
+function startOfWeek(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - x.getDay());
+  return x;
 }
 
 export default function CalendarPage() {
@@ -57,24 +62,59 @@ export default function CalendarPage() {
   const month = currentDate.getMonth();
   const today = new Date();
 
-  const navigate = (dir: number) => setCurrentDate(new Date(year, month + dir, 1));
+  // Compute date range based on view
+  const range = useMemo(() => {
+    if (view === "month") {
+      return {
+        start: new Date(year, month, 1),
+        end: new Date(year, month + 1, 0, 23, 59, 59),
+      };
+    }
+    if (view === "week") {
+      const s = startOfWeek(currentDate);
+      const e = new Date(s);
+      e.setDate(e.getDate() + 6);
+      e.setHours(23, 59, 59, 999);
+      return { start: s, end: e };
+    }
+    const s = new Date(currentDate);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(currentDate);
+    e.setHours(23, 59, 59, 999);
+    return { start: s, end: e };
+  }, [view, currentDate, year, month]);
 
-  // Fetch user events
+  const navigate = (dir: number) => {
+    const d = new Date(currentDate);
+    if (view === "month") d.setMonth(d.getMonth() + dir);
+    else if (view === "week") d.setDate(d.getDate() + 7 * dir);
+    else d.setDate(d.getDate() + dir);
+    setCurrentDate(d);
+  };
+
+  const headerLabel = useMemo(() => {
+    if (view === "month") return `${monthNames[month]} ${year}`;
+    if (view === "week") {
+      const s = range.start;
+      const e = range.end;
+      return `${monthNames[s.getMonth()].slice(0, 3)} ${s.getDate()} – ${monthNames[e.getMonth()].slice(0, 3)} ${e.getDate()}, ${e.getFullYear()}`;
+    }
+    return currentDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  }, [view, currentDate, month, year, range]);
+
+  // Fetch events for the visible range
   const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ["user-events", user?.id, year, month],
+    queryKey: ["user-events", user?.id, range.start.toISOString(), range.end.toISOString()],
     queryFn: async () => {
       if (!user) return [];
-      const start = new Date(year, month, 1).toISOString();
-      const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
       const { data, error } = await supabase
         .from("user_events")
         .select("*, course:courses(name, color)")
         .eq("user_id", user.id)
-        .gte("start_time", start)
-        .lte("start_time", end)
+        .gte("start_time", range.start.toISOString())
+        .lte("start_time", range.end.toISOString())
         .order("start_time", { ascending: true });
       if (error) throw error;
-      // Resolve signed URLs for event images
       const resolved = await Promise.all(
         (data || []).map(async (e: any) => {
           if (e.image_url) {
@@ -89,13 +129,10 @@ export default function CalendarPage() {
     enabled: !!user,
   });
 
-  // Fetch assignments with due dates this month
   const { data: assignments = [] } = useQuery({
-    queryKey: ["calendar-assignments", user?.id, year, month],
+    queryKey: ["calendar-assignments", user?.id, range.start.toISOString(), range.end.toISOString()],
     queryFn: async () => {
       if (!user) return [];
-      const start = new Date(year, month, 1).toISOString();
-      const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
       const { data, error } = await supabase
         .from("user_assignments")
         .select("id, status, assignment:assignments(id, title, due_date, course:courses(name, color))")
@@ -103,63 +140,55 @@ export default function CalendarPage() {
       if (error) throw error;
       return (data || []).filter((ua: any) => {
         const due = ua.assignment?.due_date;
-        return due && due >= start && due <= end;
+        return due && due >= range.start.toISOString() && due <= range.end.toISOString();
       });
     },
     enabled: !!user,
   });
 
-  // Combine events and assignments into calendar items
-  const calendarItems = useMemo(() => {
-    const items: { date: number; title: string; color: string; type: string; time: string; eventId?: string; raw?: any }[] = [];
-
+  type Item = { dateKey: string; date: Date; title: string; color: string; type: string; time: string; eventId?: string; raw?: any };
+  const items = useMemo<Item[]>(() => {
+    const arr: Item[] = [];
     events.forEach((e: any) => {
       const d = new Date(e.start_time);
-      if (d.getMonth() === month && d.getFullYear() === year) {
-        items.push({
-          date: d.getDate(),
-          title: e.title,
-          color: e.color || (e.course as any)?.color || eventTypeColors[e.event_type] || "bg-primary",
-          type: e.event_type || "personal",
-          time: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          eventId: e.id,
-          raw: e,
-        });
-      }
+      arr.push({
+        dateKey: d.toDateString(),
+        date: d,
+        title: e.title,
+        color: e.color || (e.course as any)?.color || eventTypeColors[e.event_type] || "bg-primary",
+        type: e.event_type || "personal",
+        time: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        eventId: e.id,
+        raw: e,
+      });
     });
-
     assignments.forEach((ua: any) => {
       const a = ua.assignment;
       if (!a?.due_date) return;
       const d = new Date(a.due_date);
-      if (d.getMonth() === month && d.getFullYear() === year) {
-        items.push({
-          date: d.getDate(),
-          title: a.title,
-          color: (a.course as any)?.color || "bg-blue-500",
-          type: "assignment",
-          time: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-      }
+      arr.push({
+        dateKey: d.toDateString(),
+        date: d,
+        title: a.title,
+        color: (a.course as any)?.color || "bg-blue-500",
+        type: "assignment",
+        time: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
     });
+    return arr;
+  }, [events, assignments]);
 
-    return items;
-  }, [events, assignments, month, year]);
-
-  const itemsByDate = useMemo(() => {
-    const map = new Map<number, typeof calendarItems>();
-    calendarItems.forEach((item) => {
-      const arr = map.get(item.date) || [];
-      arr.push(item);
-      map.set(item.date, arr);
+  const itemsByDateKey = useMemo(() => {
+    const map = new Map<string, Item[]>();
+    items.forEach((it) => {
+      const a = map.get(it.dateKey) || [];
+      a.push(it);
+      map.set(it.dateKey, a);
     });
     return map;
-  }, [calendarItems]);
+  }, [items]);
 
-  const todayItems = useMemo(() => {
-    if (today.getMonth() !== month || today.getFullYear() !== year) return [];
-    return itemsByDate.get(today.getDate()) || [];
-  }, [itemsByDate, today, month, year]);
+  const todayItems = useMemo(() => itemsByDateKey.get(today.toDateString()) || [], [itemsByDateKey, today]);
 
   const upcomingAssignments = useMemo(() => {
     return assignments
@@ -171,13 +200,10 @@ export default function CalendarPage() {
       .slice(0, 3);
   }, [assignments, today]);
 
-  // Create event
   const handleCreate = async (data: any, imageFile: File | null) => {
     if (!user) return;
     let imageUrl: string | null = null;
-    if (imageFile) {
-      imageUrl = await uploadEventImage(user.id, imageFile);
-    }
+    if (imageFile) imageUrl = await uploadEventImage(user.id, imageFile);
     const { error } = await supabase.from("user_events").insert({
       user_id: user.id,
       title: data.title.trim(),
@@ -192,13 +218,10 @@ export default function CalendarPage() {
     toast({ title: "Event created!" });
   };
 
-  // Edit event
   const handleEdit = async (data: any, imageFile: File | null) => {
     if (!user || !selectedEvent) return;
     let imageUrl = data.imageUrl || null;
-    if (imageFile) {
-      imageUrl = await uploadEventImage(user.id, imageFile);
-    }
+    if (imageFile) imageUrl = await uploadEventImage(user.id, imageFile);
     const { error } = await supabase
       .from("user_events")
       .update({
@@ -216,7 +239,6 @@ export default function CalendarPage() {
     toast({ title: "Event updated!" });
   };
 
-  // Delete event
   const handleDelete = async () => {
     if (!selectedEvent) return;
     const { error } = await supabase.from("user_events").delete().eq("id", selectedEvent.id);
@@ -230,30 +252,53 @@ export default function CalendarPage() {
     toast({ title: "Event deleted" });
   };
 
-  const openEdit = (event: any) => {
-    setSelectedEvent(event);
-    setEditOpen(true);
-  };
-
-  const openDelete = (event: any) => {
-    setSelectedEvent(event);
-    setDeleteOpen(true);
-  };
+  const openEdit = (event: any) => { setSelectedEvent(event); setEditOpen(true); };
+  const openDelete = (event: any) => { setSelectedEvent(event); setDeleteOpen(true); };
 
   const toLocalDatetime = (iso: string) => {
     const d = new Date(iso);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   };
 
-  // Calendar grid
+  // ----- Month grid -----
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const calendarDays: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
-  for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
+  const monthCells: (Date | null)[] = [];
+  for (let i = 0; i < firstDay; i++) monthCells.push(null);
+  for (let i = 1; i <= daysInMonth; i++) monthCells.push(new Date(year, month, i));
+  const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
-  const isToday = (day: number) =>
-    day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  // ----- Week / Day shared (hourly grid) -----
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const weekDays = useMemo(() => {
+    const s = startOfWeek(currentDate);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(s);
+      d.setDate(s.getDate() + i);
+      return d;
+    });
+  }, [currentDate]);
+
+  const renderEventChip = (item: Item, j: number) => (
+    <div
+      key={j}
+      className={item.eventId ? "cursor-pointer" : ""}
+      onClick={(e) => {
+        if (item.eventId && item.raw) {
+          e.stopPropagation();
+          openEdit(item.raw);
+        }
+      }}
+    >
+      <span
+        className={`${item.color.startsWith("bg-") ? item.color + " text-white" : ""} block rounded px-1 py-0.5 text-[11px] flex items-center gap-1`}
+        style={!item.color.startsWith("bg-") ? { backgroundColor: item.color, color: "white" } : undefined}
+      >
+        {item.raw?.image_url && <ImageIcon className="h-2.5 w-2.5 shrink-0" />}
+        <span className="truncate">{item.time} {item.title}</span>
+      </span>
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -267,11 +312,12 @@ export default function CalendarPage() {
         </Button>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
-          <h2 className="text-xl font-semibold text-foreground min-w-[180px] text-center">{monthNames[month]} {year}</h2>
+          <h2 className="text-xl font-semibold text-foreground min-w-[220px] text-center">{headerLabel}</h2>
           <Button variant="outline" size="icon" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
         </div>
         <Tabs value={view} onValueChange={(v) => setView(v as any)}>
           <TabsList>
@@ -287,23 +333,24 @@ export default function CalendarPage() {
           <CardContent className="p-4">
             {eventsLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : (
+            ) : view === "month" ? (
               <div className="grid grid-cols-7 gap-px">
                 {dayLabels.map((d) => (
                   <div key={d} className="p-2 text-center text-sm font-medium text-muted-foreground">{d}</div>
                 ))}
-                {calendarDays.map((day, i) => {
-                  const dayItems = day ? itemsByDate.get(day) || [] : [];
+                {monthCells.map((d, i) => {
+                  const dayItems = d ? itemsByDateKey.get(d.toDateString()) || [] : [];
+                  const isTodayCell = d && isSameDay(d, today);
                   return (
                     <div
                       key={i}
                       className={`min-h-[80px] p-1 border border-border rounded-sm ${
-                        day && isToday(day) ? "bg-primary/10 border-primary" : day ? "hover:bg-muted/50" : ""
+                        isTodayCell ? "bg-primary/10 border-primary" : d ? "hover:bg-muted/50" : ""
                       }`}
                     >
-                      {day && (
+                      {d && (
                         <>
-                          <span className={`text-xs font-medium ${isToday(day) ? "text-primary" : "text-foreground"}`}>{day}</span>
+                          <span className={`text-xs font-medium ${isTodayCell ? "text-primary" : "text-foreground"}`}>{d.getDate()}</span>
                           <div className="mt-0.5 space-y-0.5">
                             {dayItems.slice(0, 3).map((item, j) => (
                               <div
@@ -332,6 +379,61 @@ export default function CalendarPage() {
                         </>
                       )}
                     </div>
+                  );
+                })}
+              </div>
+            ) : view === "week" ? (
+              <div className="overflow-x-auto">
+                <div className="min-w-[700px]">
+                  <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border">
+                    <div />
+                    {weekDays.map((d) => {
+                      const isTodayCell = isSameDay(d, today);
+                      return (
+                        <div
+                          key={d.toISOString()}
+                          className={`p-2 text-center cursor-pointer ${isTodayCell ? "text-primary font-semibold" : "text-foreground"}`}
+                          onClick={() => { setCurrentDate(d); setView("day"); }}
+                        >
+                          <div className="text-xs uppercase text-muted-foreground">{dayLabels[d.getDay()]}</div>
+                          <div className="text-lg">{d.getDate()}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="grid grid-cols-[60px_repeat(7,1fr)] max-h-[600px] overflow-y-auto">
+                    {hours.map((h) => (
+                      <>
+                        <div key={`h-${h}`} className="text-xs text-muted-foreground p-1 border-r border-border text-right pr-2 h-14">
+                          {h.toString().padStart(2, "0")}:00
+                        </div>
+                        {weekDays.map((d) => {
+                          const dayItems = (itemsByDateKey.get(d.toDateString()) || []).filter((it) => it.date.getHours() === h);
+                          return (
+                            <div key={`${d.toISOString()}-${h}`} className="border-b border-r border-border h-14 p-0.5 space-y-0.5 hover:bg-muted/30">
+                              {dayItems.map((it, j) => renderEventChip(it, j))}
+                            </div>
+                          );
+                        })}
+                      </>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Day view
+              <div className="grid grid-cols-[60px_1fr] max-h-[700px] overflow-y-auto">
+                {hours.map((h) => {
+                  const dayItems = (itemsByDateKey.get(currentDate.toDateString()) || []).filter((it) => it.date.getHours() === h);
+                  return (
+                    <>
+                      <div key={`dh-${h}`} className="text-xs text-muted-foreground p-1 border-r border-border text-right pr-2 h-16">
+                        {h.toString().padStart(2, "0")}:00
+                      </div>
+                      <div key={`dc-${h}`} className="border-b border-border h-16 p-1 space-y-0.5 hover:bg-muted/30">
+                        {dayItems.map((it, j) => renderEventChip(it, j))}
+                      </div>
+                    </>
                   );
                 })}
               </div>
@@ -391,7 +493,7 @@ export default function CalendarPage() {
             <CardContent>
               <div className="space-y-2">
                 {upcomingAssignments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No upcoming deadlines this month.</p>
+                  <p className="text-sm text-muted-foreground">No upcoming deadlines.</p>
                 ) : (
                   upcomingAssignments.map((ua: any, i: number) => {
                     const a = ua.assignment;
@@ -412,7 +514,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Create Event Dialog */}
       <EventDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -420,7 +521,6 @@ export default function CalendarPage() {
         mode="create"
       />
 
-      {/* Edit Event Dialog */}
       {selectedEvent && (
         <EventDialog
           open={editOpen}
@@ -441,7 +541,6 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Delete Confirmation */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
