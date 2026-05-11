@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { ShareNoteDialog } from "@/components/notes/ShareNoteDialog";
+import { ShareManagerDialog } from "@/components/notes/ShareManagerDialog";
+import { exportNoteToPdf } from "@/lib/exportNotePdf";
 import {
   AlertDialog,
   AlertDialogAction,
