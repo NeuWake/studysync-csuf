@@ -403,8 +403,8 @@ export default function CalendarPage() {
                   </div>
                   <div className="grid grid-cols-[60px_repeat(7,1fr)] max-h-[600px] overflow-y-auto">
                     {hours.map((h) => (
-                      <>
-                        <div key={`h-${h}`} className="text-xs text-muted-foreground p-1 border-r border-border text-right pr-2 h-14">
+                      <Fragment key={`wh-${h}`}>
+                        <div className="text-xs text-muted-foreground p-1 border-r border-border text-right pr-2 h-14">
                           {h.toString().padStart(2, "0")}:00
                         </div>
                         {weekDays.map((d) => {
@@ -415,7 +415,7 @@ export default function CalendarPage() {
                             </div>
                           );
                         })}
-                      </>
+                      </Fragment>
                     ))}
                   </div>
                 </div>
