@@ -289,7 +289,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
               </Button>
             )}
             <Button variant="outline" onClick={() => setPreview(null)}>Back</Button>
-            <Button onClick={confirmAttach}>Attach this file</Button>
+            <Button onClick={confirmAttachPreview}>Attach this file</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
