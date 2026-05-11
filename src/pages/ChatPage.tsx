@@ -158,7 +158,7 @@ export default function ChatPage() {
       const userIds = [...new Set(chronological.map((m) => m.user_id))];
       if (!userIds.length) return chronological;
       const { data: profiles } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("user_id, full_name")
         .in("user_id", userIds);
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
