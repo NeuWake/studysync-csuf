@@ -52,7 +52,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
-              <Route path="/confirm-email" element={<ConfirmEmailRequiredPage />} />
+              <Route path="/confirm-email" element={<Navigate to="/auth" replace />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
