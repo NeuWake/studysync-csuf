@@ -38,6 +38,48 @@ export default function AssignmentsPage() {
   const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
+  const [pickerForAssignmentId, setPickerForAssignmentId] = useState<string | null>(null);
+
+  const { data: attachments = [] } = useQuery({
+    queryKey: ["task-attachments", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task_attachments")
+        .select("id, assignment_id, file_name, file_url, file_size, created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const attachMutation = useMutation({
+    mutationFn: async ({ assignmentId, file }: { assignmentId: string; file: PickedDriveFile }) => {
+      const url = file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`;
+      const { error } = await supabase.from("task_attachments").insert({
+        user_id: user!.id,
+        assignment_id: assignmentId,
+        file_name: file.name,
+        file_url: url,
+        file_size: file.size ? Number(file.size) : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Attached", description: "Drive file linked to assignment." });
+      queryClient.invalidateQueries({ queryKey: ["task-attachments"] });
+    },
+    onError: (e: Error) => toast({ title: "Couldn't attach", description: e.message, variant: "destructive" }),
+  });
+
+  const removeAttachmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("task_attachments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-attachments"] }),
+  });
 
   // Load saved course filter preference
   useEffect(() => {
