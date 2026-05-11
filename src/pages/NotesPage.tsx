@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { ShareNoteDialog } from "@/components/notes/ShareNoteDialog";
+import { ShareManagerDialog } from "@/components/notes/ShareManagerDialog";
+import { exportNoteToPdf } from "@/lib/exportNotePdf";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Trash2, Share2, Upload, Users, Loader2 } from "lucide-react";
+import { Plus, FileText, Trash2, Share2, Upload, Users, Loader2, Link as LinkIcon, Download } from "lucide-react";
 import mammoth from "mammoth/mammoth.browser";
 import { formatDistanceToNow } from "date-fns";
 
@@ -37,6 +39,7 @@ export default function NotesPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [manageSharesOpen, setManageSharesOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [collabIds, setCollabIds] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
@@ -163,9 +166,20 @@ export default function NotesPage() {
       {/* Sidebar list */}
       <div className="w-72 shrink-0 flex flex-col rounded-lg border border-border bg-card overflow-hidden">
         <div className="p-3 border-b border-border flex flex-col gap-2">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Notes
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Notes
+            </h2>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setManageSharesOpen(true)}
+              title="Manage public links"
+            >
+              <LinkIcon className="h-3.5 w-3.5 mr-1" /> Links
+            </Button>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" onClick={createNote}>
               <Plus className="h-4 w-4 mr-1" /> New
@@ -235,6 +249,14 @@ export default function NotesPage() {
                 placeholder="Note title"
                 className="text-lg font-semibold border-none bg-transparent focus-visible:ring-1"
               />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportNoteToPdf(active.title, active.content)}
+                title="Export as PDF"
+              >
+                <Download className="h-4 w-4 mr-1" /> PDF
+              </Button>
               {isOwner && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
@@ -270,6 +292,12 @@ export default function NotesPage() {
           onChanged={loadNotes}
         />
       )}
+
+      <ShareManagerDialog
+        open={manageSharesOpen}
+        onOpenChange={setManageSharesOpen}
+        onChanged={loadNotes}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
