@@ -41,6 +41,9 @@ export function AssignmentDocumentsDialog({ userAssignmentId, assignmentTitle, o
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ["assignment-documents", userAssignmentId],
