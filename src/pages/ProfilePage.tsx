@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,8 +18,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState({
     fullName: "",
+    avatarUrl: "" as string,
     university: "California State University, Fullerton",
     major: "",
     gradYear: "",
@@ -39,6 +42,7 @@ export default function ProfilePage() {
       if (profileData) {
         setProfile({
           fullName: profileData.full_name || "",
+          avatarUrl: profileData.avatar_url || "",
           university: profileData.university || "",
           major: profileData.major || "",
           gradYear: profileData.grad_year?.toString() || "",
@@ -73,6 +77,42 @@ export default function ProfilePage() {
       toast({ title: "Profile saved!" });
     }
     setSaving(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Max 5 MB.", variant: "destructive" });
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("user_id", user.id);
+      if (updErr) throw updErr;
+      setProfile((p) => ({ ...p, avatarUrl: publicUrl }));
+      toast({ title: "Profile picture updated!" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleSaveCanvas = async () => {
@@ -134,10 +174,25 @@ export default function ProfilePage() {
           <div className="flex items-center gap-6">
             <div className="relative">
               <Avatar className="h-20 w-20">
+                {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} alt={profile.fullName || "Avatar"} />}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xl">{initials}</AvatarFallback>
               </Avatar>
-              <Button size="icon" variant="outline" className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full">
-                <Camera className="h-3 w-3" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+              <Button
+                size="icon"
+                variant="outline"
+                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                title="Change profile picture"
+              >
+                {uploadingAvatar ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
               </Button>
             </div>
             <div>
