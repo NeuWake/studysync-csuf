@@ -37,7 +37,7 @@ export default function ChatInvitationsDialog({ open, onOpenChange }: ChatInvita
 
       const [{ data: chatrooms }, { data: profiles }] = await Promise.all([
         supabase.from("chatrooms").select("id, name, type").in("id", chatroomIds),
-        supabase.from("profiles").select("user_id, full_name").in("user_id", inviterIds),
+        supabase.from("public_profiles").select("user_id, full_name").in("user_id", inviterIds),
       ]);
 
       const chatroomMap = new Map(chatrooms?.map((c) => [c.id, c]) || []);
