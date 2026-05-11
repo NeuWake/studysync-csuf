@@ -39,6 +39,7 @@ export default function NotesPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [manageSharesOpen, setManageSharesOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [collabIds, setCollabIds] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
