@@ -81,6 +81,46 @@ export const ChatNotificationProvider: React.FC<{ children: React.ReactNode }> =
     });
   }, []);
 
+  const queryClient = useQueryClient();
+  const bcRef = useRef<BroadcastChannel | null>(null);
+
+  // Cross-tab sync via BroadcastChannel
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const bc = new BroadcastChannel("studysync_chat");
+    bcRef.current = bc;
+    bc.onmessage = (ev) => {
+      const data = ev.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "chat_deleted" && typeof data.roomId === "string") {
+        setUnreadRooms((prev) => {
+          if (!prev.has(data.roomId)) return prev;
+          const next = new Set(prev);
+          next.delete(data.roomId);
+          return next;
+        });
+        queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
+        queryClient.removeQueries({ queryKey: ["messages", data.roomId] });
+        queryClient.removeQueries({ queryKey: ["chatroom-members", data.roomId] });
+      }
+    };
+    return () => {
+      bc.close();
+      bcRef.current = null;
+    };
+  }, [queryClient]);
+
+  const notifyChatDeleted = useCallback((roomId: string) => {
+    // Local clear (in case caller forgot) + broadcast to other tabs
+    setUnreadRooms((prev) => {
+      if (!prev.has(roomId)) return prev;
+      const next = new Set(prev);
+      next.delete(roomId);
+      return next;
+    });
+    bcRef.current?.postMessage({ type: "chat_deleted", roomId });
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     const channel = supabase
