@@ -38,6 +38,7 @@ export default function AssignmentsPage() {
   // null = not yet loaded from server; [] = explicitly no courses; otherwise array of course names to include
   const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [docsFor, setDocsFor] = useState<{ id: string; title: string } | null>(null);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
 
   // Load saved course filter preference
