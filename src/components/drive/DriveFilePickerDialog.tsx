@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getGoogleDriveAuthUrl, getStandaloneConnectUrl, isEmbeddedPreview } from "@/lib/googleDriveOAuth";
 
 export interface PickedDriveFile {
   id: string;
@@ -63,24 +64,8 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const connect = async () => {
     setConnecting(true);
     try {
-      const returnTo = window.location.href;
-      const { data, error } = await supabase.functions.invoke("google-oauth-start", {
-        body: {},
-        headers: {},
-      });
-      if (error) throw new Error(error.message);
-      // We invoked POST; build URL with return_to via separate fetch instead.
-      // Actually google-oauth-start reads return_to from query — re-call via fetch:
-      const sess = (await supabase.auth.getSession()).data.session;
-      const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-oauth-start`);
-      url.searchParams.set("return_to", returnTo);
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${sess?.access_token}` },
-      });
-      const json = await res.json();
-      if (!res.ok || !json.url) throw new Error(json.error || "Failed to start OAuth");
-      // Open in a new tab — Google blocks being framed inside the Lovable preview iframe.
-      const win = window.open(json.url, "_blank", "noopener,noreferrer");
+      const targetUrl = isEmbeddedPreview() ? getStandaloneConnectUrl() : await getGoogleDriveAuthUrl();
+      const win = window.open(targetUrl, "_blank", "noopener,noreferrer");
       if (!win) {
         toast({
           title: "Popup blocked",
@@ -90,7 +75,6 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       } else {
         toast({ title: "Continue in the new tab", description: "Finish Google sign-in, then return here." });
       }
-      void data;
     } catch (e) {
       toast({ title: "Couldn't start Google sign-in", description: (e as Error).message, variant: "destructive" });
     } finally {
