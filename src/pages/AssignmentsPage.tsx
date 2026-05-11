@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown } from "lucide-react";
+import { Plus, Search, RefreshCw, Clock, CheckCircle, AlertTriangle, Circle, Loader2, Trash2, BookOpen, ChevronDown, Paperclip } from "lucide-react";
+import { AssignmentDocumentsDialog } from "@/components/AssignmentDocumentsDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
@@ -37,6 +38,7 @@ export default function AssignmentsPage() {
   // null = not yet loaded from server; [] = explicitly no courses; otherwise array of course names to include
   const [selectedCourses, setSelectedCourses] = useState<string[] | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [docsFor, setDocsFor] = useState<{ id: string; title: string } | null>(null);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
 
   // Load saved course filter preference
@@ -380,6 +382,15 @@ export default function AssignmentsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => setDocsFor({ id: a.id, title: assign.title })}
+                        title="Documents"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
@@ -450,6 +461,15 @@ export default function AssignmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {docsFor && (
+        <AssignmentDocumentsDialog
+          userAssignmentId={docsFor.id}
+          assignmentTitle={docsFor.title}
+          open={!!docsFor}
+          onOpenChange={(o) => !o && setDocsFor(null)}
+        />
+      )}
 
     </div>
   );

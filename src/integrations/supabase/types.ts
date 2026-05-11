@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          storage_path: string
+          user_assignment_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          storage_path: string
+          user_assignment_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          storage_path?: string
+          user_assignment_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_documents_user_assignment_id_fkey"
+            columns: ["user_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "user_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           assignment_type: Database["public"]["Enums"]["assignment_type"] | null
