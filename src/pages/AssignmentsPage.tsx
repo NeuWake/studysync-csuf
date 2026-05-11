@@ -422,6 +422,15 @@ export default function AssignmentsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        title="Attach Google Drive file"
+                        onClick={() => setPickerForAssignmentId(assign.id)}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
@@ -445,6 +454,30 @@ export default function AssignmentsPage() {
                       </AlertDialog>
                     </div>
                   </div>
+                  {(() => {
+                    const atts = attachments.filter((at: any) => at.assignment_id === assign.id);
+                    if (atts.length === 0) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t space-y-1">
+                        {atts.map((at: any) => (
+                          <div key={at.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Paperclip className="h-3 w-3 shrink-0" />
+                            <a href={at.file_url} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate flex items-center gap-1">
+                              {at.file_name}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            <button
+                              onClick={() => removeAttachmentMutation.mutate(at.id)}
+                              className="ml-auto hover:text-destructive"
+                              title="Remove attachment"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
