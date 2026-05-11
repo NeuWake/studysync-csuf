@@ -119,14 +119,12 @@ export default function AssignmentsPage() {
       } else if (status === "missed") {
         update.progress = 0;
         update.completed_at = null;
-      } else if (status === "pending") {
-        update.progress = 0;
+      } else {
+        // Preserve existing progress when moving between pending and in-progress
         update.completed_at = null;
-      } else if (status === "in-progress") {
-        update.completed_at = null;
-        // Ensure progress reflects in-progress state (not 0 and not 100)
-        if (currentProgress === undefined || currentProgress === 0 || currentProgress >= 100) {
-          update.progress = 10;
+        if (currentProgress !== undefined && currentProgress >= 100) {
+          // Coming back from completed — drop below 100 so the status makes sense
+          update.progress = 90;
         }
       }
       const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
