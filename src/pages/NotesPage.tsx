@@ -293,6 +293,12 @@ export default function NotesPage() {
         />
       )}
 
+      <ShareManagerDialog
+        open={manageSharesOpen}
+        onOpenChange={setManageSharesOpen}
+        onChanged={loadNotes}
+      />
+
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
