@@ -1,130 +1,48 @@
+# Plan: Generate `_Instructions.docx`
 
+Produce a downloadable Word document at `/mnt/documents/_Instructions.docx` describing how to install and run StudySync (the Lovable + Lovable Cloud app in this project).
 
-## Assignment Tracking & Collaboration App — Full Build Plan
+## Formatting (per requirements)
+- Filename: `_Instructions.docx` (leading underscore)
+- Font: Arial 12pt (sans-serif), applied as default style
+- Line spacing: double (480 twips)
+- Margins: 2.54 cm / 1 inch on all sides (1440 DXA)
+- Page size: US Letter (12240 × 15840 DXA)
+- Footer: page number in lower-right corner (right-aligned `PageNumber.CURRENT`), shown on every page
 
-### Theme & Design System
-- **Primary:** Orange (`#F97316`) + Blue (`#3B82F6`) color palette
-- **Light/Dark mode toggle** in sidebar header
-- Sidebar navigation with icons, presence indicators, and collapse support
-- Responsive layout (desktop, tablet, mobile)
-- Modern, student-friendly UI using shadcn/ui components
+## Content outline
+1. **Title**: StudySync — Installation & Run Instructions
+2. **Overview** — short description of the system (React + Vite frontend, Lovable Cloud / Supabase backend, optional Canvas LMS integration)
+3. **Prerequisites**
+   - Operating system: Windows 10+, macOS 12+, or Linux (Ubuntu 20.04+)
+   - Node.js 18+ (or Bun 1.0+)
+   - npm 9+ / bun
+   - Modern browser (Chrome, Edge, Firefox, Safari latest)
+   - Git
+   - A Supabase / Lovable Cloud project (database engine: PostgreSQL 15, managed)
+   - Optional: Canvas LMS access token for sync features
+4. **Required environment variables** (`.env`)
+   - `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`
+5. **Installation steps**
+   - Unzip the project
+   - `cd` into the project folder
+   - `npm install` (or `bun install`)
+6. **Running locally**
+   - `npm run dev` → open `http://localhost:8080`
+7. **Building for production**
+   - `npm run build` then `npm run preview`
+8. **Using the deployed app**
+   - Published URL: `https://studysync-csuf.lovable.app`
+9. **First-time setup inside the app**
+   - Sign up with email/password, complete Canvas onboarding (optional), start using Notes / Assignments / Calendar / Chat / Whiteboard
+10. **Troubleshooting** — clear node_modules, verify `.env`, check Supabase project status
 
----
+## Technical implementation
+- Use the docx skill (`docx-js` via Node) to generate the file.
+- Script location: `/tmp/gen_instructions.js`, output: `/mnt/documents/_Instructions.docx`.
+- Set default style font Arial 12pt; paragraph spacing `{ line: 480, lineRule: "auto" }` for double spacing.
+- Footer with right-aligned `TextRun({ children: [PageNumber.CURRENT] })`.
+- After generation: validate via the skill's `validate_document.py`, then convert to PDF + render pages as images for QA inspection of margins, font, spacing, and footer page numbers. Fix and regenerate if issues found.
+- Deliver via `<lov-artifact>` tag.
 
-### Database Schema (Supabase Postgres)
-
-**Core Tables:**
-- `profiles` — user_id (FK auth.users), full_name, avatar_url, university, major, grad_year, study_interests, canvas_access_token (encrypted), help_points, study_streaks
-- `user_roles` — user_id, role (enum: admin, user)
-- `courses` — id, canvas_course_id, name, code, description, color
-- `user_courses` — user_id, course_id (junction)
-- `assignments` — id, course_id, canvas_assignment_id, title, description, due_date, status (pending/in-progress/completed/missed), assignment_type
-- `user_assignments` — user_id, assignment_id, status, completed_at
-- `user_events` — id, user_id, title, start_time, end_time, is_recurring, recurrence_rule, event_type (lecture/lab/office_hours/personal), course_id, is_canvas_synced
-- `task_attachments` — id, assignment_id, user_id, file_url, file_name
-
-**Chat Tables:**
-- `chatrooms` — id, name, type (dm/group/assignment_thread), course_id, assignment_id, created_by
-- `chatroom_members` — chatroom_id, user_id, joined_at
-- `messages` — id, chatroom_id, user_id, content, sent_at, edited_at
-- `friendships` — id, requester_id, addressee_id, status (pending/accepted/blocked)
-
-**Whiteboard Tables:**
-- `whiteboards` — id, name, created_by, course_id, max_users (default 5)
-- `whiteboard_members` — whiteboard_id, user_id
-- `whiteboard_notes` — id, whiteboard_id, user_id, content, position_x, position_y, color, updated_at
-
-**Stats (derived from existing data, no extra tables needed)**
-
-All tables get RLS policies scoped to authenticated users. Realtime enabled on messages, whiteboard_notes, chatroom_members.
-
----
-
-### Pages & Features
-
-#### 1. Auth (Login/Signup)
-- Email + password signup/login via Supabase Auth
-- Canvas access token input field during onboarding (stored encrypted in profile)
-- "Validate & Continue" flow that tests the token against Canvas API
-- Password reset flow
-
-#### 2. Dashboard (Home)
-- Customizable widget grid (drag-and-drop reorder via `dnd-kit`)
-- Widgets: 7-day deadline preview, to-do list, mini calendar, productivity stats, reminders
-- Widget preferences persisted in `profiles.dashboard_config` (JSONB)
-- Progress bars per assignment and per course
-
-#### 3. Assignment & Task Manager
-- Canvas sync: Edge function fetches assignments/courses from Canvas API using stored token
-- Manual task creation form (title, due date, course, description, attachments)
-- File upload to Supabase Storage bucket
-- Status management: pending → in-progress → completed / missed
-- Filters by course, status, due date
-- Due date reminders (in-app notification toast system)
-
-#### 4. Unified Calendar
-- Full calendar with day/week/month views (using a React calendar library)
-- Color-coded events by course and type
-- Overlay of Canvas assignments + class schedule + personal tasks
-- Add/edit/delete events with recurrence support
-- AI study timing suggestions shown as highlighted blocks (rule-based: find free slots before deadlines)
-
-#### 5. Chat & Messaging
-- Sidebar contact list with online/offline/away presence (Supabase Realtime presence)
-- Direct messages (1:1)
-- Group chats (course-linked or custom)
-- Assignment-linked discussion threads
-- Real-time message delivery via Supabase Realtime subscriptions
-- Friend request system (send/accept/decline)
-- Shared courses visible on contact profiles
-
-#### 6. Whiteboard (Simple Shared Notes)
-- Create whiteboard sessions, invite friends (max 5 users)
-- Real-time collaborative sticky notes board
-- Each note: draggable, editable text, color-coded
-- Synced via Supabase Realtime on `whiteboard_notes` table
-- Session state persisted automatically
-
-#### 7. Profile & Settings
-- View/edit name, avatar, university, major, grad year, study interests
-- Canvas access token management
-- Theme toggle (light/dark)
-- Notification preferences
-
-#### 8. Statistics & Productivity
-- Charts via Recharts: assignments completed vs missed over time, completion rate by course, streaks
-- Time-to-completion trends
-- Group contribution tracking (who completed what in shared assignments)
-- Bar, pie, and line chart visualizations
-
----
-
-### Canvas API Integration
-- Edge function: `canvas-sync` — authenticates with user's Canvas token, fetches courses, assignments, due dates
-- Data mapped to Supabase tables (courses, assignments, user_courses, user_assignments)
-- Manual sync trigger button + option for periodic sync
-- OAuth 2.0 flow handled via Canvas access token validation
-
----
-
-### Navigation Structure
-- **Sidebar** (collapsible): Dashboard, Calendar, Assignments, Chat, Whiteboard, Stats, Profile
-- Each nav item has an icon + label
-- Presence indicator dots on Chat nav item
-- Dark/light mode toggle in sidebar footer
-
----
-
-### Implementation Order (all scaffolded in first pass)
-1. Design system (orange/blue theme, light/dark mode CSS variables)
-2. Supabase schema migration (all tables + RLS)
-3. Auth pages (login, signup, password reset)
-4. App layout with sidebar navigation
-5. Dashboard with widget grid
-6. Assignment manager + Canvas sync edge function
-7. Calendar page
-8. Chat system with Realtime
-9. Whiteboard (shared notes)
-10. Statistics dashboard
-11. Profile/Settings page
-
+No project source files will be modified.
