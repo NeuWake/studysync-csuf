@@ -15,6 +15,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import AssignmentsPage from "@/pages/AssignmentsPage";
 import ChatPage from "@/pages/ChatPage";
 import AIChatPage from "@/pages/AIChatPage";
+import GradeCalculatorPage from "@/pages/GradeCalculatorPage";
 import WhiteboardPage from "@/pages/WhiteboardPage";
 import StatsPage from "@/pages/StatsPage";
 import ProfilePage from "@/pages/ProfilePage";
