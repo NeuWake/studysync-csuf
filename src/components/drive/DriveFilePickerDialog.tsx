@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { GOOGLE_DRIVE_SCOPE, GOOGLE_OAUTH_CLIENT_ID } from "@/config/google";
-import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn } from "lucide-react";
+import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink } from "lucide-react";
 
 declare global {
   interface Window {
@@ -48,6 +48,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: "root", name: "My Drive" }]);
+  const [preview, setPreview] = useState<PickedDriveFile | null>(null);
   const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
   const current = stack[stack.length - 1];
   const configured = GOOGLE_OAUTH_CLIENT_ID && !GOOGLE_OAUTH_CLIENT_ID.startsWith("PASTE_");
@@ -130,10 +131,19 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       setSearch("");
       setStack((s) => [...s, { id: f.id, name: f.name }]);
     } else {
-      onPick(f);
-      onOpenChange(false);
+      setPreview(f);
     }
   };
+
+  const confirmAttach = () => {
+    if (!preview) return;
+    onPick(preview);
+    setPreview(null);
+    onOpenChange(false);
+  };
+
+  // Drive's /preview endpoint embeds PDFs, Docs, Sheets, Slides, images, video, and most common doc types.
+  const previewSrc = preview ? `https://drive.google.com/file/d/${preview.id}/preview` : "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -195,6 +205,40 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog open={!!preview} onOpenChange={(v) => { if (!v) setPreview(null); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{preview?.name}</DialogTitle>
+            <DialogDescription>
+              Preview before attaching. PDFs, Google Docs/Sheets/Slides, images, and video are supported.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="aspect-[4/3] w-full bg-muted rounded-md overflow-hidden">
+            {preview && (
+              <iframe
+                key={preview.id}
+                src={previewSrc}
+                title={preview.name}
+                className="w-full h-full border-0"
+                allow="autoplay"
+              />
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            {preview?.webViewLink && (
+              <Button
+                variant="ghost"
+                onClick={() => window.open(preview.webViewLink!, "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-4 w-4 mr-1" /> Open in Drive
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setPreview(null)}>Back</Button>
+            <Button onClick={confirmAttach}>Attach this file</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
