@@ -736,6 +736,7 @@ export type Database = {
         Args: { _chatroom_id: string; _user_id: string }
         Returns: boolean
       }
+      is_email_confirmed: { Args: never; Returns: boolean }
       is_whiteboard_member: {
         Args: { _user_id: string; _whiteboard_id: string }
         Returns: boolean
