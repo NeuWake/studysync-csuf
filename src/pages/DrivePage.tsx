@@ -156,10 +156,31 @@ export default function DrivePage() {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_EXP_KEY);
     setToken(null);
+    setTokenExp(0);
+    setApiCheck({ status: "idle" });
     setFiles([]);
     setFolderStack([{ id: "root", name: "My Drive" }]);
     if (t && window.google?.accounts?.oauth2) window.google.accounts.oauth2.revoke(t);
   };
+
+  const testDriveApi = useCallback(async () => {
+    if (!token) return;
+    setApiCheck({ status: "checking" });
+    try {
+      const res = await fetch("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName),storageQuota(limit,usage)", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setApiCheck({ status: "error", message: `${res.status}: ${txt.slice(0, 200)}` });
+        return;
+      }
+      const data = await res.json();
+      setApiCheck({ status: "ok", user: data?.user?.emailAddress || data?.user?.displayName, message: "Drive API responded successfully" });
+    } catch (e) {
+      setApiCheck({ status: "error", message: (e as Error).message });
+    }
+  }, [token]);
 
   const fetchFiles = useCallback(async () => {
     if (!token) return;
