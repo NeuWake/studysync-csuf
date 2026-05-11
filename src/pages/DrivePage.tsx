@@ -87,6 +87,8 @@ export default function DrivePage() {
     { id: "root", name: "My Drive" },
   ]);
   const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
+  const [tokenExp, setTokenExp] = useState<number>(0);
+  const [apiCheck, setApiCheck] = useState<{ status: "idle" | "checking" | "ok" | "error"; message?: string; user?: string }>({ status: "idle" });
 
   const currentFolder = folderStack[folderStack.length - 1];
   const clientIdConfigured = useMemo(
