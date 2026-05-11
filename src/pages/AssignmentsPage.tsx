@@ -62,6 +62,9 @@ export default function AssignmentsPage() {
         file_name: file.name,
         file_url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
         file_size: file.size ? Number(file.size) : null,
+        mime_type: file.mimeType || null,
+        owner_name: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || null,
+        modified_time: file.modifiedTime || null,
       }));
       const { error } = await supabase.from("task_attachments").insert(rows);
       if (error) throw error;
