@@ -117,7 +117,7 @@ export default function DrivePage() {
   useEffect(() => {
     const cached = sessionStorage.getItem(TOKEN_KEY);
     const exp = Number(sessionStorage.getItem(TOKEN_EXP_KEY) || 0);
-    if (cached && exp > Date.now() + 30_000) setToken(cached);
+    if (cached && exp > Date.now() + 30_000) { setToken(cached); setTokenExp(exp); }
   }, []);
 
   const initTokenClient = useCallback(() => {
