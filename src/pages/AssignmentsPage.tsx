@@ -142,11 +142,12 @@ export default function AssignmentsPage() {
 
   const updateProgressMutation = useMutation({
     mutationFn: async ({ id, progress }: { id: string; progress: number }) => {
-      const update: any = { progress };
-      if (progress === 100) {
+      const clamped = Math.max(0, Math.min(100, Math.round((progress || 0) / 10) * 10));
+      const update: any = { progress: clamped };
+      if (clamped === 100) {
         update.status = "completed";
         update.completed_at = new Date().toISOString();
-      } else if (progress > 0) {
+      } else if (clamped > 0) {
         update.status = "in-progress";
         update.completed_at = null;
       }
