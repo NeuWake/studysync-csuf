@@ -48,6 +48,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: "root", name: "My Drive" }]);
+  const [preview, setPreview] = useState<PickedDriveFile | null>(null);
   const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
   const current = stack[stack.length - 1];
   const configured = GOOGLE_OAUTH_CLIENT_ID && !GOOGLE_OAUTH_CLIENT_ID.startsWith("PASTE_");
