@@ -43,15 +43,16 @@ export default function AuthPage() {
     setLoading(false);
   };
 
-  const handleResendConfirmation = async () => {
-    if (!email) {
+  const handleResendConfirmation = async (overrideEmail?: string) => {
+    const target = overrideEmail || email;
+    if (!target) {
       toast({ title: "Email required", description: "Enter your email above first.", variant: "destructive" });
       return;
     }
     setLoading(true);
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email,
+      email: target,
       options: { emailRedirectTo: `${window.location.origin}/dashboard` },
     });
     if (error) {
