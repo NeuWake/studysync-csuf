@@ -205,6 +205,40 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog open={!!preview} onOpenChange={(v) => { if (!v) setPreview(null); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{preview?.name}</DialogTitle>
+            <DialogDescription>
+              Preview before attaching. PDFs, Google Docs/Sheets/Slides, images, and video are supported.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="aspect-[4/3] w-full bg-muted rounded-md overflow-hidden">
+            {preview && (
+              <iframe
+                key={preview.id}
+                src={previewSrc}
+                title={preview.name}
+                className="w-full h-full border-0"
+                allow="autoplay"
+              />
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            {preview?.webViewLink && (
+              <Button
+                variant="ghost"
+                onClick={() => window.open(preview.webViewLink!, "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-4 w-4 mr-1" /> Open in Drive
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setPreview(null)}>Back</Button>
+            <Button onClick={confirmAttach}>Attach this file</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
