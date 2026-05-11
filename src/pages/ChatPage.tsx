@@ -113,10 +113,38 @@ export default function ChatPage() {
         .in("id", ids)
         .order("created_at", { ascending: false });
       if (crErr) throw crErr;
-      return chatrooms || [];
+      const list = chatrooms || [];
+
+      // For DMs, override the displayed name with the OTHER member's name
+      const dmIds = list.filter((r: any) => r.type === "dm").map((r: any) => r.id);
+      const dmNameMap = new Map<string, string>();
+      if (dmIds.length) {
+        const { data: dmMembers } = await supabase
+          .from("chatroom_members")
+          .select("chatroom_id, user_id")
+          .in("chatroom_id", dmIds)
+          .neq("user_id", user.id);
+        const otherIds = [...new Set((dmMembers || []).map((m) => m.user_id))];
+        if (otherIds.length) {
+          const { data: profs } = await supabase
+            .from("public_profiles")
+            .select("user_id, full_name")
+            .in("user_id", otherIds);
+          const profMap = new Map((profs || []).map((p) => [p.user_id, p.full_name]));
+          (dmMembers || []).forEach((m) => {
+            const name = profMap.get(m.user_id);
+            if (name) dmNameMap.set(m.chatroom_id, name);
+          });
+        }
+      }
+      return list.map((r: any) => ({
+        ...r,
+        display_name: r.type === "dm" ? (dmNameMap.get(r.id) || r.name) : r.name,
+      }));
     },
     enabled: !!user,
   });
+
 
   // Fetch pending invitation count
   const { data: pendingInviteCount = 0 } = useQuery({
