@@ -334,11 +334,13 @@ export default function NotesPage() {
                 </span>
               )}
             </div>
+            <NotePresence noteId={active.id} pingRef={typingPingRef} />
             <div className="flex-1 overflow-auto">
               <NoteEditor
                 key={active.id}
                 content={active.content}
                 onChange={(json) => persistChanges(active.id, { content: json })}
+                onTyping={() => typingPingRef.current?.()}
               />
             </div>
           </>
