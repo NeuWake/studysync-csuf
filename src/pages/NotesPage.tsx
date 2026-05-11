@@ -48,6 +48,7 @@ export default function NotesPage() {
   const [filter, setFilter] = useState<"all" | "mine" | "shared" | "public">("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
+  const typingPingRef = useRef<(() => void) | null>(null);
 
   const active = useMemo(() => notes.find((n) => n.id === activeId) ?? null, [notes, activeId]);
   const isOwner = active && user && active.user_id === user.id;
