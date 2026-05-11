@@ -168,7 +168,7 @@ export default function AuthPage() {
               <CardFooter className="flex flex-col gap-2">
                 <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign In"}</Button>
                 <Button type="button" variant="link" className="text-sm" onClick={() => setResetMode(true)}>Forgot password?</Button>
-                <Button type="button" variant="ghost" className="text-xs h-auto py-1" onClick={handleResendConfirmation} disabled={loading}>
+                <Button type="button" variant="ghost" className="text-xs h-auto py-1" onClick={() => handleResendConfirmation()} disabled={loading}>
                   Resend confirmation email
                 </Button>
               </CardFooter>
