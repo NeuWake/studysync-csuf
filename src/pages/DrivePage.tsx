@@ -135,6 +135,8 @@ export default function DrivePage() {
         sessionStorage.setItem(TOKEN_KEY, resp.access_token);
         sessionStorage.setItem(TOKEN_EXP_KEY, String(expiresAt));
         setToken(resp.access_token);
+        setTokenExp(expiresAt);
+        setApiCheck({ status: "idle" });
       },
     });
     return tokenClientRef.current;
