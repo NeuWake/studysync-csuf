@@ -8,7 +8,6 @@ import { ChatNotificationProvider } from "@/contexts/ChatNotificationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
-import ConfirmEmailRequiredPage from "@/pages/ConfirmEmailRequiredPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
 import CalendarPage from "@/pages/CalendarPage";
