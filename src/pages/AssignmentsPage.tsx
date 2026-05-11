@@ -40,6 +40,7 @@ export default function AssignmentsPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [docsFor, setDocsFor] = useState<{ id: string; title: string } | null>(null);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
+  const [liveProgress, setLiveProgress] = useState<Record<string, number>>({});
 
   // Load saved course filter preference
   useEffect(() => {
@@ -367,14 +368,29 @@ export default function AssignmentsPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-36">
                         <Slider
-                          value={[a.progress || 0]}
+                          value={[liveProgress[a.id] ?? a.progress ?? 0]}
                           min={0}
                           max={100}
                           step={10}
-                          onValueCommit={(val) => updateProgressMutation.mutate({ id: a.id, progress: val[0] })}
+                          onValueChange={(val) => {
+                            const snapped = Math.round(val[0] / 10) * 10;
+                            setLiveProgress((p) => ({ ...p, [a.id]: snapped }));
+                          }}
+                          onValueCommit={(val) => {
+                            const raw = val[0];
+                            const snapped = Math.round(raw / 10) * 10;
+                            const prev = a.progress ?? 0;
+                            if (snapped !== prev) {
+                              toast({ title: `Progress snapped to ${snapped}%`, description: `Values lock to the nearest 10% step.` });
+                            }
+                            setLiveProgress((p) => {
+                              const next = { ...p }; delete next[a.id]; return next;
+                            });
+                            updateProgressMutation.mutate({ id: a.id, progress: snapped });
+                          }}
                           className="h-2"
                         />
-                        <p className="text-xs text-muted-foreground mt-1 text-right">{a.progress || 0}%</p>
+                        <p className="text-xs text-muted-foreground mt-1 text-right">{liveProgress[a.id] ?? a.progress ?? 0}%</p>
                       </div>
                       <Select value={status} onValueChange={(v) => updateStatusMutation.mutate({ id: a.id, status: v as Status, currentProgress: a.progress || 0 })}>
                         <SelectTrigger className="w-[140px] h-8 text-xs">
