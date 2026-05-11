@@ -172,7 +172,7 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Attach from Google Drive</DialogTitle>
-          <DialogDescription>Pick a file from your personal Drive to attach.</DialogDescription>
+          <DialogDescription>Select one or more files from your personal Drive to attach.</DialogDescription>
         </DialogHeader>
 
         {!configured ? (
