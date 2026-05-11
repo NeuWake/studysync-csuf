@@ -11,6 +11,7 @@ import {
   LogOut,
   Volume2,
   VolumeOff,
+  Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,6 +39,7 @@ const mainNav = [
   { title: "Calendar", url: "/calendar", icon: CalendarDays },
   { title: "Assignments", url: "/assignments", icon: ClipboardList },
   { title: "Chat", url: "/chat", icon: MessageSquare },
+  { title: "AI Chat", url: "/ai-chat", icon: Sparkles },
   { title: "Whiteboard", url: "/whiteboard", icon: StickyNote },
   { title: "Statistics", url: "/stats", icon: BarChart3 },
   { title: "Profile", url: "/profile", icon: User },
