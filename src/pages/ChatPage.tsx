@@ -536,11 +536,11 @@ export default function ChatPage() {
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                    {selectedRoomData?.type === "dm" ? (selectedRoomData?.name?.[0] || "?") : <Users className="h-4 w-4" />}
+                    {selectedRoomData?.type === "dm" ? ((selectedRoomData?.display_name || selectedRoomData?.name)?.[0] || "?") : <Users className="h-4 w-4" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-medium text-sm text-foreground">{selectedRoomData?.name || "Chat"}</p>
+                  <p className="font-medium text-sm text-foreground">{selectedRoomData?.display_name || selectedRoomData?.name || "Chat"}</p>
                   <p className="text-xs text-muted-foreground capitalize">{selectedRoomData?.type?.replace("_", " ")}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setMembersOpen(true)}>
