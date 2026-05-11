@@ -162,7 +162,12 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
                       {m.full_name?.[0]?.toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium text-foreground flex-1">{m.full_name || "Unknown"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{m.full_name || "Unknown"}</p>
+                    {m.username && (
+                      <p className="text-xs text-muted-foreground truncate">@{m.username}</p>
+                    )}
+                  </div>
                   {m.user_id === createdBy && <Crown className="h-4 w-4 text-primary" />}
                   {isOwner && m.user_id !== createdBy && (
                     <Button
