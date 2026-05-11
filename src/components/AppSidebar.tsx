@@ -43,6 +43,7 @@ const mainNav = [
   { title: "AI Chat", url: "/ai-chat", icon: Sparkles },
   { title: "Whiteboard", url: "/whiteboard", icon: StickyNote },
   { title: "Statistics", url: "/stats", icon: BarChart3 },
+  { title: "Grade Calculator", url: "/grade-calculator", icon: Calculator },
   { title: "Profile", url: "/profile", icon: User },
 ];
 
