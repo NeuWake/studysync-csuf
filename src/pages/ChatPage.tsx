@@ -393,7 +393,7 @@ export default function ChatPage() {
 
   const selectedRoomData = rooms.find((r: any) => r.id === selectedRoom);
   const filteredRooms = rooms.filter((r: any) =>
-    !searchQuery || r.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery || (r.display_name || r.name)?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
