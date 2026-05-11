@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, Award, Flame, Target, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, addDays } from "date-fns";
-import { useMemo } from "react";
+import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, addDays, subDays } from "date-fns";
+import { useMemo, useState } from "react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export default function StatsPage() {
   const { user } = useAuth();
@@ -83,7 +84,7 @@ export default function StatsPage() {
       color: c.color,
     }));
 
-    // Weekly activity (current week)
+    // Weekly activity (current week, daily)
     const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const weeklyData = days.map((day, i) => {
@@ -93,11 +94,26 @@ export default function StatsPage() {
         const d = new Date(a.completed_at);
         return d.toDateString() === dayDate.toDateString();
       }).length;
-      return { day, tasks };
+      return { label: day, tasks };
     });
 
-    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData };
+    // Monthly activity (last 30 days, daily)
+    const monthlyActivity = [];
+    for (let i = 29; i >= 0; i--) {
+      const dayDate = subDays(new Date(), i);
+      const tasks = userAssignments.filter((a) => {
+        if (a.status !== "completed" || !a.completed_at) return false;
+        const d = new Date(a.completed_at);
+        return d.toDateString() === dayDate.toDateString();
+      }).length;
+      monthlyActivity.push({ label: format(dayDate, "MMM d"), tasks });
+    }
+
+    return { completionRate, completed, missed, total, monthlyData, courseData, weeklyData, monthlyActivity };
   }, [userAssignments]);
+
+  const [activityRange, setActivityRange] = useState<"weekly" | "monthly">("weekly");
+  const activityData = activityRange === "weekly" ? stats?.weeklyData ?? [] : stats?.monthlyActivity ?? [];
 
   if (loadingUA) {
     return (
@@ -173,16 +189,38 @@ export default function StatsPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Weekly Activity</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>{activityRange === "weekly" ? "Weekly" : "Monthly"} Activity</CardTitle>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={activityRange}
+              onValueChange={(v) => v && setActivityRange(v as "weekly" | "monthly")}
+            >
+              <ToggleGroupItem value="weekly">Weekly</ToggleGroupItem>
+              <ToggleGroupItem value="monthly">Monthly</ToggleGroupItem>
+            </ToggleGroup>
+          </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={stats?.weeklyData ?? []}>
+              <LineChart data={activityData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="day" className="text-xs" />
-                <YAxis className="text-xs" />
+                <XAxis
+                  dataKey="label"
+                  className="text-xs"
+                  interval={activityRange === "monthly" ? 4 : 0}
+                />
+                <YAxis className="text-xs" allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
-                <Bar dataKey="tasks" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Line
+                  type="monotone"
+                  dataKey="tasks"
+                  stroke="hsl(217, 91%, 60%)"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "hsl(217, 91%, 60%)" }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
