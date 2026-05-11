@@ -156,13 +156,13 @@ export default function StatsPage() {
           <CardHeader><CardTitle>Assignments Over Time</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={stats?.monthlyData ?? []}>
+              <BarChart data={stats?.monthlyData ?? []} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
+                <XAxis dataKey="month" className="text-xs" tickLine={false} />
+                <YAxis className="text-xs" allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--card-foreground))' }} />
-                <Bar dataKey="completed" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="missed" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="completed" stackId="a" fill="hsl(25, 95%, 53%)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="missed" stackId="a" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
