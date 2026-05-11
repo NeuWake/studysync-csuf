@@ -1255,12 +1255,12 @@ export default function WhiteboardPage() {
 
           <div className="flex gap-4">
             {/* Canvas */}
-            <Card className="flex-1">
-              <CardContent className="p-0">
+            <Card className={`flex-1 ${isFullscreen ? "fixed inset-0 z-50 rounded-none m-0" : ""}`}>
+              <CardContent className="p-0 h-full">
                 <div
                   ref={containerRef}
                   className="relative w-full rounded-lg overflow-hidden"
-                  style={{ height: "calc(100vh - 320px)", minHeight: "400px", backgroundColor: "#FAFAFA" }}
+                  style={{ height: isFullscreen ? "100vh" : "calc(100vh - 320px)", minHeight: "400px", backgroundColor: "#FAFAFA" }}
                 >
                   {strokesLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
