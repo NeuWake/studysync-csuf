@@ -142,7 +142,8 @@ export default function AssignmentsPage() {
 
   const updateProgressMutation = useMutation({
     mutationFn: async ({ id, progress }: { id: string; progress: number }) => {
-      const clamped = Math.max(0, Math.min(100, Math.round((progress || 0) / 10) * 10));
+      const requested = progress ?? 0;
+      const clamped = Math.max(0, Math.min(100, Math.round(requested / 10) * 10));
       const update: any = { progress: clamped };
       if (clamped === 100) {
         update.status = "completed";
@@ -153,10 +154,18 @@ export default function AssignmentsPage() {
       }
       const { error } = await supabase.from("user_assignments").update(update).eq("id", id);
       if (error) throw error;
+      return { requested, clamped };
     },
-    onSuccess: () => {
+    onSuccess: ({ requested, clamped }) => {
       queryClient.invalidateQueries({ queryKey: ["user-assignments"] });
       queryClient.invalidateQueries({ queryKey: ["stats-user-assignments"] });
+      if (requested !== clamped) {
+        const reason =
+          requested < 0 || requested > 100
+            ? `Progress must be between 0% and 100%. Adjusted ${requested}% → ${clamped}%.`
+            : `Progress snaps to 10% steps. Adjusted ${requested}% → ${clamped}%.`;
+        toast({ title: "Progress adjusted", description: reason });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Progress update failed", description: err.message, variant: "destructive" });
