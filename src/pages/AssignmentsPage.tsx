@@ -46,7 +46,7 @@ export default function AssignmentsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("task_attachments")
-        .select("id, assignment_id, file_name, file_url, file_size, created_at")
+        .select("id, assignment_id, file_name, file_url, file_size, created_at, mime_type, owner_name, modified_time")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
