@@ -28,15 +28,26 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove }: 
 
   const handleSearch = async (q: string) => {
     setQuery(q);
-    if (q.trim().length < 2) {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
       setResults([]);
       return;
     }
     setSearching(true);
+    const isHandle = trimmed.startsWith("@");
+    const term = isHandle ? trimmed.slice(1).trim() : trimmed;
+    if (!term) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    const filter = isHandle
+      ? `username.ilike.%${term}%`
+      : `full_name.ilike.%${term}%, username.ilike.%${term}%`;
     const { data } = await supabase
       .from("public_profiles")
       .select("user_id, full_name, university, username")
-      .or(`full_name.ilike.%${q.trim()}%, username.ilike.%${q.trim()}%`)
+      .or(filter)
       .neq("user_id", user?.id ?? "")
       .limit(10);
     setResults(data || []);
@@ -50,7 +61,7 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove }: 
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search users by name..."
+          placeholder="Search by name or @username..."
           className="pl-9"
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
