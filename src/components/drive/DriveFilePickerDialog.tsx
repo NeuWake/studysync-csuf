@@ -38,7 +38,8 @@ export interface PickedDriveFile {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onPick: (file: PickedDriveFile) => void;
+  /** Receives one or more selected files. */
+  onPick: (files: PickedDriveFile[]) => void;
 }
 
 export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
@@ -50,6 +51,8 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const [search, setSearch] = useState("");
   const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: "root", name: "My Drive" }]);
   const [preview, setPreview] = useState<PickedDriveFile | null>(null);
+  /** Map of fileId -> file, so selection persists across folder navigation/search. */
+  const [selected, setSelected] = useState<Record<string, PickedDriveFile>>({});
   const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
   const current = stack[stack.length - 1];
   const configured = GOOGLE_OAUTH_CLIENT_ID && !GOOGLE_OAUTH_CLIENT_ID.startsWith("PASTE_");
