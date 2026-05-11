@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket, UserPlus, Hand, ZoomIn, ZoomOut, Maximize2, Download } from "lucide-react";
+import { Plus, Users, Loader2, Pencil, Square, Circle, Minus, Eraser, Trash2, StickyNote, Undo2, Type, MousePointer2, Triangle, Diamond, ArrowRight, Star, Hexagon, PaintBucket, UserPlus, Hand, ZoomIn, ZoomOut, Maximize2, Minimize2, Download } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -174,6 +174,24 @@ export default function WhiteboardPage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsFullscreen(false); };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const t = setTimeout(() => window.dispatchEvent(new Event("resize")), 60);
+    return () => clearTimeout(t);
+  }, [isFullscreen]);
 
   // --- Coordinate conversion ---
   const screenToWorld = useCallback((sx: number, sy: number): [number, number] => {
@@ -1237,12 +1255,12 @@ export default function WhiteboardPage() {
 
           <div className="flex gap-4">
             {/* Canvas */}
-            <Card className="flex-1">
-              <CardContent className="p-0">
+            <Card className={`flex-1 ${isFullscreen ? "fixed inset-0 z-50 rounded-none m-0" : ""}`}>
+              <CardContent className="p-0 h-full">
                 <div
                   ref={containerRef}
                   className="relative w-full rounded-lg overflow-hidden"
-                  style={{ height: "calc(100vh - 320px)", minHeight: "400px", backgroundColor: "#FAFAFA" }}
+                  style={{ height: isFullscreen ? "100vh" : "calc(100vh - 320px)", minHeight: "400px", backgroundColor: "#FAFAFA" }}
                 >
                   {strokesLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -1295,6 +1313,15 @@ export default function WhiteboardPage() {
                     <div className="w-px h-5 bg-border" />
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fitToContent} title="Fit to content">
                       <Maximize2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setIsFullscreen((v) => !v)}
+                      title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+                    >
+                      {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
