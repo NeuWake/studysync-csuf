@@ -360,7 +360,7 @@ export default function AssignmentsPage() {
                           value={[a.progress || 0]}
                           min={0}
                           max={100}
-                          step={5}
+                          step={10}
                           onValueCommit={(val) => updateProgressMutation.mutate({ id: a.id, progress: val[0] })}
                           className="h-2"
                         />
