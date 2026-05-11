@@ -5,7 +5,6 @@ import {
   MessageSquare,
   StickyNote,
   BarChart3,
-  HardDrive,
   User,
   Sun,
   Moon,
@@ -40,7 +39,6 @@ const mainNav = [
   { title: "Assignments", url: "/assignments", icon: ClipboardList },
   { title: "Chat", url: "/chat", icon: MessageSquare },
   { title: "Whiteboard", url: "/whiteboard", icon: StickyNote },
-  { title: "Google Drive", url: "/drive", icon: HardDrive },
   { title: "Statistics", url: "/stats", icon: BarChart3 },
   { title: "Profile", url: "/profile", icon: User },
 ];

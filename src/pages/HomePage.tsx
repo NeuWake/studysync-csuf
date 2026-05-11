@@ -13,7 +13,6 @@ import {
   ListChecks,
   MessageSquare,
   PenSquare,
-  HardDrive,
   BarChart3,
   Sparkles,
   ArrowRight,
@@ -23,7 +22,7 @@ const features = [
   {
     icon: ListChecks,
     title: "Assignments",
-    desc: "Sync Canvas assignments and track manual tasks with attachments from Google Drive.",
+    desc: "Sync Canvas assignments and track manual tasks with progress and due dates.",
   },
   {
     icon: CalendarDays,
@@ -39,11 +38,6 @@ const features = [
     icon: PenSquare,
     title: "Collaborative Whiteboard",
     desc: "Brainstorm, sketch diagrams, and solve problems together on a shared canvas.",
-  },
-  {
-    icon: HardDrive,
-    title: "Drive Integration",
-    desc: "Browse, preview, and attach Google Drive files directly to assignments.",
   },
   {
     icon: BarChart3,
@@ -90,8 +84,8 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-8">
-            StudySync pulls together Canvas assignments, Google Drive files, group
-            chat, a collaborative whiteboard, and productivity insights into one
+            StudySync pulls together Canvas assignments, group chat, a
+            collaborative whiteboard, and productivity insights into one
             focused workspace built for students.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -206,7 +200,7 @@ export default function HomePage() {
             <AccordionItem value="collab-1">
               <AccordionTrigger>How do I collaborate with classmates?</AccordionTrigger>
               <AccordionContent>
-                Search for classmates by name or email and invite them to a chat or whiteboard. Once they accept, you can message in real time, share files from Drive, and brainstorm together on a shared canvas.
+                Search for classmates by name or email and invite them to a chat or whiteboard. Once they accept, you can message in real time and brainstorm together on a shared canvas.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="collab-2">
