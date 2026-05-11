@@ -246,6 +246,16 @@ export default function ProfilePage() {
               <Input value={profile.fullName} onChange={(e) => setProfile({ ...profile, fullName: e.target.value })} />
             </div>
             <div className="space-y-2">
+              <Label>Username</Label>
+              <Input
+                value={profile.username}
+                onChange={(e) => setProfile({ ...profile, username: e.target.value.replace(/\s+/g, "") })}
+                placeholder="3-20 letters, numbers, _"
+                maxLength={20}
+              />
+              <p className="text-xs text-muted-foreground">Must be unique and different from your name.</p>
+            </div>
+            <div className="space-y-2">
               <Label>University</Label>
               <Input value={profile.university} onChange={(e) => setProfile({ ...profile, university: e.target.value })} />
             </div>
