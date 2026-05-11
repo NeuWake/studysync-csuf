@@ -14,6 +14,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import AssignmentsPage from "@/pages/AssignmentsPage";
 import ChatPage from "@/pages/ChatPage";
 import WhiteboardPage from "@/pages/WhiteboardPage";
+import DrivePage from "@/pages/DrivePage";
 import StatsPage from "@/pages/StatsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "@/pages/NotFound";
