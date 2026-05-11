@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,19 +96,6 @@ export default function AuthPage() {
       toast({ title: "Check your email", description: "Password reset link sent." });
     }
     setLoading(false);
-  };
-
-  const handleGoogle = async () => {
-    setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast({ title: "Google sign-in failed", description: (result.error as Error).message, variant: "destructive" });
-      setLoading(false);
-    }
-    // On `redirected: true` the browser will navigate away; on success the
-    // AuthContext picks up the session and routes to /dashboard.
   };
 
   if (resetMode) {
