@@ -341,53 +341,6 @@ export type Database = {
         }
         Relationships: []
       }
-      task_attachments: {
-        Row: {
-          assignment_id: string
-          created_at: string
-          file_name: string
-          file_size: number | null
-          file_url: string
-          id: string
-          mime_type: string | null
-          modified_time: string | null
-          owner_name: string | null
-          user_id: string
-        }
-        Insert: {
-          assignment_id: string
-          created_at?: string
-          file_name: string
-          file_size?: number | null
-          file_url: string
-          id?: string
-          mime_type?: string | null
-          modified_time?: string | null
-          owner_name?: string | null
-          user_id: string
-        }
-        Update: {
-          assignment_id?: string
-          created_at?: string
-          file_name?: string
-          file_size?: number | null
-          file_url?: string
-          id?: string
-          mime_type?: string | null
-          modified_time?: string | null
-          owner_name?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_attachments_assignment_id_fkey"
-            columns: ["assignment_id"]
-            isOneToOne: false
-            referencedRelation: "assignments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_assignments: {
         Row: {
           assignment_id: string
@@ -546,42 +499,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      user_google_tokens: {
-        Row: {
-          access_token: string | null
-          created_at: string
-          expires_at: string | null
-          id: string
-          provider: string
-          refresh_token: string
-          scope: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          access_token?: string | null
-          created_at?: string
-          expires_at?: string | null
-          id?: string
-          provider?: string
-          refresh_token: string
-          scope?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          access_token?: string | null
-          created_at?: string
-          expires_at?: string | null
-          id?: string
-          provider?: string
-          refresh_token?: string
-          scope?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       user_roles: {
         Row: {
