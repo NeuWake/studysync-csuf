@@ -328,6 +328,68 @@ export type Database = {
           },
         ]
       }
+      note_collaborators: {
+        Row: {
+          created_at: string
+          id: string
+          note_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_collaborators_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notes: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          share_enabled: boolean
+          share_token: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          id?: string
+          share_enabled?: boolean
+          share_token?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          share_enabled?: boolean
+          share_token?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           accent_color: string | null
@@ -757,6 +819,15 @@ export type Database = {
       }
     }
     Functions: {
+      get_shared_note: {
+        Args: { _token: string }
+        Returns: {
+          content: Json
+          id: string
+          title: string
+          updated_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -769,6 +840,14 @@ export type Database = {
         Returns: boolean
       }
       is_email_confirmed: { Args: never; Returns: boolean }
+      is_note_collaborator: {
+        Args: { _note_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_note_owner: {
+        Args: { _note_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_username_available: {
         Args: { check_username: string }
         Returns: boolean
