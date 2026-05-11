@@ -1314,6 +1314,15 @@ export default function WhiteboardPage() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fitToContent} title="Fit to content">
                       <Maximize2 className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setIsFullscreen((v) => !v)}
+                      title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+                    >
+                      {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
                   </div>
                 </div>
               </CardContent>
