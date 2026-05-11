@@ -178,7 +178,7 @@ export default function ChatPage() {
       }, async (payload) => {
         const newMsg = payload.new as Message;
         const { data: profile } = await supabase
-          .from("profiles").select("user_id, full_name")
+          .from("public_profiles").select("user_id, full_name")
           .eq("user_id", newMsg.user_id).maybeSingle();
         newMsg.profile = profile;
         shouldScrollRef.current = true;
