@@ -51,15 +51,19 @@ export default function AuthPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: target,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
-    });
-    if (error) {
-      toast({ title: "Could not resend", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Confirmation sent", description: "Check your inbox for the new confirmation link." });
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: target,
+        options: { emailRedirectTo: buildAuthRedirectUrl("/dashboard") },
+      });
+      if (error) {
+        toast({ title: "Could not resend", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Confirmation sent", description: "Check your inbox for the new confirmation link." });
+      }
+    } catch (err: any) {
+      toast({ title: "Invalid redirect URL", description: err.message, variant: "destructive" });
     }
     setLoading(false);
   };
