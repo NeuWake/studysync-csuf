@@ -246,7 +246,7 @@ export default function ProfilePage() {
                 placeholder="3-20 letters, numbers, _"
                 maxLength={20}
               />
-              <p className="text-xs text-muted-foreground">Must be unique and different from your name.</p>
+              <p className="text-xs text-muted-foreground">Must be unique. Can include parts of your name.</p>
             </div>
             <div className="space-y-2">
               <Label>University</Label>
