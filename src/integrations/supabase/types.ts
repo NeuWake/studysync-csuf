@@ -693,18 +693,21 @@ export type Database = {
           full_name: string | null
           university: string | null
           user_id: string | null
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
           full_name?: string | null
           university?: string | null
           user_id?: string | null
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
           full_name?: string | null
           university?: string | null
           user_id?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -722,6 +725,10 @@ export type Database = {
         Returns: boolean
       }
       is_email_confirmed: { Args: never; Returns: boolean }
+      is_username_available: {
+        Args: { check_username: string }
+        Returns: boolean
+      }
       is_whiteboard_member: {
         Args: { _user_id: string; _whiteboard_id: string }
         Returns: boolean
