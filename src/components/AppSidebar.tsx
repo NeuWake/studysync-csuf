@@ -5,6 +5,7 @@ import {
   MessageSquare,
   StickyNote,
   BarChart3,
+  HardDrive,
   User,
   Sun,
   Moon,
