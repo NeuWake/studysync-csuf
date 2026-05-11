@@ -249,6 +249,14 @@ export default function NotesPage() {
                 placeholder="Note title"
                 className="text-lg font-semibold border-none bg-transparent focus-visible:ring-1"
               />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportNoteToPdf(active.title, active.content)}
+                title="Export as PDF"
+              >
+                <Download className="h-4 w-4 mr-1" /> PDF
+              </Button>
               {isOwner && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
