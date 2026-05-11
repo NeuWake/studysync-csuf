@@ -79,7 +79,9 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
       });
       const json = await res.json();
       if (!res.ok || !json.url) throw new Error(json.error || "Failed to start OAuth");
-      window.location.href = json.url;
+      // Break out of the Lovable preview iframe — Google blocks framing.
+      try { (window.top ?? window).location.href = json.url; }
+      catch { window.open(json.url, "_blank", "noopener,noreferrer"); }
       void data;
     } catch (e) {
       toast({ title: "Couldn't start Google sign-in", description: (e as Error).message, variant: "destructive" });
