@@ -1,9 +1,19 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, UserPlus, Crown, LogOut } from "lucide-react";
+import { Loader2, UserPlus, Crown, LogOut, Trash2, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +39,8 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [usersToAdd, setUsersToAdd] = useState<UserResult[]>([]);
+  const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["chatroom-members", chatroomId],
@@ -48,7 +60,6 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
     enabled: open && !!chatroomId,
   });
 
-  // Send invitations instead of directly adding
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!usersToAdd.length || !user) return;
@@ -69,7 +80,6 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
     },
   });
 
-  // Leave group
   const leaveMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
@@ -92,11 +102,49 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
     },
   });
 
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase
+        .from("chatroom_members")
+        .delete()
+        .eq("chatroom_id", chatroomId)
+        .eq("user_id", memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chatroom-members", chatroomId] });
+      toast({ title: "Member removed" });
+      setRemoveTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setRemoveTarget(null);
+    },
+  });
+
+  const deleteChatMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("chatrooms").delete().eq("id", chatroomId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
+      setConfirmDeleteChat(false);
+      onOpenChange(false);
+      onLeft?.();
+      toast({ title: "Chat deleted" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const isOwner = user?.id === createdBy;
   const memberIds = new Set(members.map((m: any) => m.user_id));
   const isMember = user ? memberIds.has(user.id) : false;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -116,6 +164,17 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
                   </Avatar>
                   <span className="text-sm font-medium text-foreground flex-1">{m.full_name || "Unknown"}</span>
                   {m.user_id === createdBy && <Crown className="h-4 w-4 text-primary" />}
+                  {isOwner && m.user_id !== createdBy && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Remove from chat"
+                      onClick={() => setRemoveTarget({ id: m.user_id, name: m.full_name || "this user" })}
+                    >
+                      <UserMinus className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -148,7 +207,21 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
           </div>
         )}
 
-        {/* Leave Group - shown for all members except the creator */}
+        {isOwner && (
+          <div className="border-t border-border pt-3">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full gap-2"
+              onClick={() => setConfirmDeleteChat(true)}
+              disabled={deleteChatMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Chat
+            </Button>
+          </div>
+        )}
+
         {isMember && !isOwner && (
           <div className="border-t border-border pt-3">
             <Button
@@ -169,5 +242,50 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
         )}
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmDeleteChat} onOpenChange={setConfirmDeleteChat}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes the chat, all its messages, members, and pending invitations. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleteChatMutation.isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); deleteChatMutation.mutate(); }}
+            disabled={deleteChatMutation.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {deleteChatMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove {removeTarget?.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            They will lose access to this chat and its messages. You can re-invite them later.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={removeMemberMutation.isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); if (removeTarget) removeMemberMutation.mutate(removeTarget.id); }}
+            disabled={removeMemberMutation.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {removeMemberMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Remove
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
