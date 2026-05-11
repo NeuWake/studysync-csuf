@@ -40,6 +40,7 @@ export default function AssignmentsPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [docsFor, setDocsFor] = useState<{ id: string; title: string } | null>(null);
   const [newTask, setNewTask] = useState({ title: "", description: "", due_date: "", assignment_type: "homework" as string });
+  const [liveProgress, setLiveProgress] = useState<Record<string, number>>({});
 
   // Load saved course filter preference
   useEffect(() => {
