@@ -168,6 +168,7 @@ export const ChatNotificationProvider: React.FC<{ children: React.ReactNode }> =
         markAllRead,
         chimeMuted,
         toggleChimeMute,
+        notifyChatDeleted,
       }}
     >
       {children}
