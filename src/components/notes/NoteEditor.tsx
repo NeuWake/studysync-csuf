@@ -26,9 +26,10 @@ interface NoteEditorProps {
   content: any;
   editable?: boolean;
   onChange?: (json: any) => void;
+  onTyping?: () => void;
 }
 
-export function NoteEditor({ content, editable = true, onChange }: NoteEditorProps) {
+export function NoteEditor({ content, editable = true, onChange, onTyping }: NoteEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -38,7 +39,10 @@ export function NoteEditor({ content, editable = true, onChange }: NoteEditorPro
     ],
     content: content || { type: "doc", content: [] },
     editable,
-    onUpdate: ({ editor }) => onChange?.(editor.getJSON()),
+    onUpdate: ({ editor }) => {
+      onChange?.(editor.getJSON());
+      onTyping?.();
+    },
     editorProps: {
       attributes: {
         class:
