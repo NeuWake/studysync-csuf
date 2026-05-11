@@ -1,31 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { GOOGLE_DRIVE_SCOPE, GOOGLE_OAUTH_CLIENT_ID } from "@/config/google";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, FolderOpen, FileText, Search, Loader2, LogIn, ExternalLink, Eye } from "lucide-react";
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: {
-            client_id: string;
-            scope: string;
-            callback: (resp: { access_token?: string; error?: string; expires_in?: number }) => void;
-          }) => { requestAccessToken: (opts?: { prompt?: string }) => void };
-          revoke: (token: string, done?: () => void) => void;
-        };
-      };
-    };
-  }
-}
-
-const TOKEN_KEY = "studysync_gdrive_token";
-const TOKEN_EXP_KEY = "studysync_gdrive_token_exp";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PickedDriveFile {
   id: string;
@@ -40,97 +20,95 @@ export interface PickedDriveFile {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  /** Receives one or more selected files. */
   onPick: (files: PickedDriveFile[]) => void;
+}
+
+/** Calls the google-drive-proxy edge function with a Drive API path. */
+async function driveApi<T = any>(path: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("google-drive-proxy", {
+    body: { path, method: "GET" },
+  });
+  if (error) throw new Error(error.message);
+  return data as T;
 }
 
 export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const { toast } = useToast();
-  const [token, setToken] = useState<string | null>(null);
-  const [gisReady, setGisReady] = useState(false);
+  const [connected, setConnected] = useState<boolean | null>(null);
   const [files, setFiles] = useState<PickedDriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: "root", name: "My Drive" }]);
   const [preview, setPreview] = useState<PickedDriveFile | null>(null);
-  /** Map of fileId -> file, so selection persists across folder navigation/search. */
   const [selected, setSelected] = useState<Record<string, PickedDriveFile>>({});
-  const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const current = stack[stack.length - 1];
-  const configured = GOOGLE_OAUTH_CLIENT_ID && !GOOGLE_OAUTH_CLIENT_ID.startsWith("PASTE_");
 
-  useEffect(() => {
-    if (window.google?.accounts?.oauth2) { setGisReady(true); return; }
-    const existing = document.querySelector<HTMLScriptElement>("script[data-gis]");
-    if (existing) { existing.addEventListener("load", () => setGisReady(true)); return; }
-    const s = document.createElement("script");
-    s.src = "https://accounts.google.com/gsi/client";
-    s.async = true; s.defer = true; s.dataset.gis = "1";
-    s.onload = () => setGisReady(true);
-    document.body.appendChild(s);
-  }, []);
-
+  // Check connection by querying user_google_tokens row.
   useEffect(() => {
     if (!open) return;
-    const cached = sessionStorage.getItem(TOKEN_KEY);
-    const exp = Number(sessionStorage.getItem(TOKEN_EXP_KEY) || 0);
-    if (cached && exp > Date.now() + 30_000) setToken(cached);
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setConnected(false); return; }
+      const { data } = await supabase
+        .from("user_google_tokens")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .eq("provider", "google")
+        .maybeSingle();
+      setConnected(!!data);
+    })();
   }, [open]);
 
-  const connect = () => {
-    if (!gisReady || !window.google || !configured) {
-      toast({ title: "Google sign-in not ready", variant: "destructive" });
-      return;
-    }
-    if (!tokenClientRef.current) {
-      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_OAUTH_CLIENT_ID,
-        scope: GOOGLE_DRIVE_SCOPE,
-        callback: (resp) => {
-          if (resp.error || !resp.access_token) {
-            toast({ title: "Drive sign-in failed", description: resp.error, variant: "destructive" });
-            return;
-          }
-          const expiresAt = Date.now() + (resp.expires_in ?? 3600) * 1000;
-          sessionStorage.setItem(TOKEN_KEY, resp.access_token);
-          sessionStorage.setItem(TOKEN_EXP_KEY, String(expiresAt));
-          setToken(resp.access_token);
-        },
+  const connect = async () => {
+    setConnecting(true);
+    try {
+      const returnTo = window.location.href;
+      const { data, error } = await supabase.functions.invoke("google-oauth-start", {
+        body: {},
+        headers: {},
       });
+      if (error) throw new Error(error.message);
+      // We invoked POST; build URL with return_to via separate fetch instead.
+      // Actually google-oauth-start reads return_to from query — re-call via fetch:
+      const sess = (await supabase.auth.getSession()).data.session;
+      const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-oauth-start`);
+      url.searchParams.set("return_to", returnTo);
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${sess?.access_token}` },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.url) throw new Error(json.error || "Failed to start OAuth");
+      window.location.href = json.url;
+      void data;
+    } catch (e) {
+      toast({ title: "Couldn't start Google sign-in", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setConnecting(false);
     }
-    tokenClientRef.current.requestAccessToken({ prompt: "consent" });
   };
 
   const fetchFiles = useCallback(async () => {
-    if (!token) return;
+    if (!connected) return;
     setLoading(true);
     try {
       const fields = "files(id,name,mimeType,size,webViewLink,modifiedTime,owners(displayName,emailAddress))";
       const q = search.trim()
         ? `name contains '${search.trim().replace(/'/g, "\\'")}' and trashed = false`
         : `'${current.id}' in parents and trashed = false`;
-      const url = new URL("https://www.googleapis.com/drive/v3/files");
-      url.searchParams.set("q", q);
-      url.searchParams.set("fields", fields);
-      url.searchParams.set("pageSize", "100");
-      url.searchParams.set("orderBy", "folder,modifiedTime desc");
-      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-      if (res.status === 401) {
-        sessionStorage.removeItem(TOKEN_KEY);
-        sessionStorage.removeItem(TOKEN_EXP_KEY);
-        setToken(null);
-        toast({ title: "Drive session expired", description: "Please reconnect.", variant: "destructive" });
-        return;
-      }
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const params = new URLSearchParams({
+        q, fields, pageSize: "100", orderBy: "folder,modifiedTime desc",
+      });
+      const data = await driveApi<{ files?: PickedDriveFile[] }>(`/drive/v3/files?${params.toString()}`);
       setFiles(data.files || []);
     } catch (e) {
-      toast({ title: "Couldn't load Drive", description: (e as Error).message, variant: "destructive" });
+      const msg = (e as Error).message;
+      if (msg.includes("not_connected")) setConnected(false);
+      toast({ title: "Couldn't load Drive", description: msg, variant: "destructive" });
     } finally { setLoading(false); }
-  }, [token, current.id, search, toast]);
+  }, [connected, current.id, search, toast]);
 
-  useEffect(() => { if (open && token) void fetchFiles(); }, [open, token, fetchFiles]);
+  useEffect(() => { if (open && connected) void fetchFiles(); }, [open, connected, fetchFiles]);
 
   const openFolder = (f: PickedDriveFile) => {
     setSearch("");
@@ -150,23 +128,17 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
   const confirmAttachAll = () => {
     if (selectedList.length === 0) return;
     onPick(selectedList);
-    setSelected({});
-    setPreview(null);
-    onOpenChange(false);
+    setSelected({}); setPreview(null); onOpenChange(false);
   };
 
   const confirmAttachPreview = () => {
     if (!preview) return;
     onPick([preview]);
-    setSelected({});
-    setPreview(null);
-    onOpenChange(false);
+    setSelected({}); setPreview(null); onOpenChange(false);
   };
 
-  // Reset selection when the dialog closes.
   useEffect(() => { if (!open) { setSelected({}); setPreview(null); } }, [open]);
 
-  // Drive's /preview endpoint embeds PDFs, Docs, Sheets, Slides, images, video, and most common doc types.
   const previewSrc = preview ? `https://drive.google.com/file/d/${preview.id}/preview` : "";
 
   return (
@@ -177,13 +149,16 @@ export function DriveFilePickerDialog({ open, onOpenChange, onPick }: Props) {
           <DialogDescription>Select one or more files from your personal Drive to attach.</DialogDescription>
         </DialogHeader>
 
-        {!configured ? (
-          <p className="text-sm text-muted-foreground">Google Drive isn't configured. Set <code>GOOGLE_OAUTH_CLIENT_ID</code> in <code>src/config/google.ts</code>.</p>
-        ) : !token ? (
+        {connected === null ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin inline mr-1" /> Checking connection…
+          </div>
+        ) : !connected ? (
           <div className="py-8 text-center space-y-3">
             <p className="text-sm text-muted-foreground">Connect Google Drive to browse your files.</p>
-            <Button onClick={connect} disabled={!gisReady}>
-              <LogIn className="h-4 w-4 mr-1" /> Connect Google Drive
+            <Button onClick={connect} disabled={connecting}>
+              {connecting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <LogIn className="h-4 w-4 mr-1" />}
+              Connect Google Drive
             </Button>
           </div>
         ) : (
