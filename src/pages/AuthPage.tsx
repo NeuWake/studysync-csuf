@@ -1,14 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Mail, Lock, Eye, EyeOff, MailCheck } from "lucide-react";
 
 export default function AuthPage() {
+  const { pendingEmail, pendingProvider } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -16,6 +19,10 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [resetMode, setResetMode] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (pendingEmail) setEmail(pendingEmail);
+  }, [pendingEmail]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,15 +43,16 @@ export default function AuthPage() {
     setLoading(false);
   };
 
-  const handleResendConfirmation = async () => {
-    if (!email) {
+  const handleResendConfirmation = async (overrideEmail?: string) => {
+    const target = overrideEmail || email;
+    if (!target) {
       toast({ title: "Email required", description: "Enter your email above first.", variant: "destructive" });
       return;
     }
     setLoading(true);
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email,
+      email: target,
       options: { emailRedirectTo: `${window.location.origin}/dashboard` },
     });
     if (error) {
@@ -131,6 +139,30 @@ export default function AuthPage() {
           <CardTitle className="text-2xl">StudySync</CardTitle>
           <CardDescription>Your assignment tracking & collaboration hub</CardDescription>
         </CardHeader>
+        {pendingEmail && (
+          <div className="px-6 pb-2">
+            <Alert>
+              <MailCheck className="h-4 w-4" />
+              <AlertTitle>Confirm your email to continue</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>
+                  We blocked your session because <span className="font-medium text-foreground">{pendingEmail}</span> isn't verified yet
+                  {pendingProvider && pendingProvider !== "email" ? ` (signed in via ${pendingProvider})` : ""}.
+                  Click the link in your inbox, or resend it below.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleResendConfirmation(pendingEmail)}
+                  disabled={loading || (pendingProvider !== null && pendingProvider !== "email")}
+                >
+                  {loading ? "Sending..." : "Resend confirmation email"}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mx-auto max-w-[90%]">
             <TabsTrigger value="login">Login</TabsTrigger>
@@ -160,7 +192,7 @@ export default function AuthPage() {
               <CardFooter className="flex flex-col gap-2">
                 <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign In"}</Button>
                 <Button type="button" variant="link" className="text-sm" onClick={() => setResetMode(true)}>Forgot password?</Button>
-                <Button type="button" variant="ghost" className="text-xs h-auto py-1" onClick={handleResendConfirmation} disabled={loading}>
+                <Button type="button" variant="ghost" className="text-xs h-auto py-1" onClick={() => handleResendConfirmation()} disabled={loading}>
                   Resend confirmation email
                 </Button>
               </CardFooter>

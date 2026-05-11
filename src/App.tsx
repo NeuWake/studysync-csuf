@@ -8,7 +8,6 @@ import { ChatNotificationProvider } from "@/contexts/ChatNotificationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
-import ConfirmEmailRequiredPage from "@/pages/ConfirmEmailRequiredPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
 import CalendarPage from "@/pages/CalendarPage";
@@ -30,15 +29,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (pendingEmail) return <Navigate to="/confirm-email" replace />;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (pendingEmail || !user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, pendingEmail } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return null;
-  if (pendingEmail) return <Navigate to="/confirm-email" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
@@ -55,7 +52,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
-              <Route path="/confirm-email" element={<ConfirmEmailRequiredPage />} />
+              <Route path="/confirm-email" element={<Navigate to="/auth" replace />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
