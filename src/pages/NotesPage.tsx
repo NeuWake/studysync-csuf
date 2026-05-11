@@ -19,7 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Trash2, Share2, Upload, Users, Loader2, Link as LinkIcon, Download } from "lucide-react";
+import { Plus, FileText, Trash2, Share2, Upload, Users, Loader2, Link as LinkIcon, Download, Search, X } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import mammoth from "mammoth/mammoth.browser";
 import { formatDistanceToNow } from "date-fns";
 
@@ -42,11 +43,39 @@ export default function NotesPage() {
   const [manageSharesOpen, setManageSharesOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [collabIds, setCollabIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "mine" | "shared" | "public">("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
 
   const active = useMemo(() => notes.find((n) => n.id === activeId) ?? null, [notes, activeId]);
   const isOwner = active && user && active.user_id === user.id;
+
+  // Extract plain text from a TipTap JSON doc for full-text search
+  const extractText = (node: any): string => {
+    if (!node) return "";
+    if (typeof node === "string") return node;
+    if (Array.isArray(node)) return node.map(extractText).join(" ");
+    let out = "";
+    if (typeof node.text === "string") out += node.text + " ";
+    if (node.content) out += extractText(node.content);
+    return out;
+  };
+
+  const filteredNotes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return notes.filter((n) => {
+      // Filter by ownership/sharing
+      if (filter === "mine" && (!user || n.user_id !== user.id)) return false;
+      if (filter === "shared" && (!user || n.user_id === user.id)) return false;
+      if (filter === "public" && !n.share_enabled) return false;
+      if (!q) return true;
+      const title = (n.title || "").toLowerCase();
+      if (title.includes(q)) return true;
+      const body = extractText(n.content).toLowerCase();
+      return body.includes(q);
+    });
+  }, [notes, search, filter, user?.id]);
 
   const loadNotes = async () => {
     if (!user) return;
@@ -199,6 +228,33 @@ export default function NotesPage() {
               }}
             />
           </div>
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search notes..."
+              className="h-8 pl-7 pr-7 text-sm"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+            <TabsList className="grid grid-cols-4 h-8">
+              <TabsTrigger value="all" className="text-xs px-1">All</TabsTrigger>
+              <TabsTrigger value="mine" className="text-xs px-1">Mine</TabsTrigger>
+              <TabsTrigger value="shared" className="text-xs px-1">Shared</TabsTrigger>
+              <TabsTrigger value="public" className="text-xs px-1">Public</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
         <ScrollArea className="flex-1">
           {loading ? (
@@ -209,9 +265,13 @@ export default function NotesPage() {
             <p className="text-sm text-muted-foreground text-center p-6">
               No notes yet. Create one to get started.
             </p>
+          ) : filteredNotes.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center p-6">
+              No notes match your search.
+            </p>
           ) : (
             <ul className="p-2 space-y-1">
-              {notes.map((n) => (
+              {filteredNotes.map((n) => (
                 <li key={n.id}>
                   <button
                     onClick={() => setActiveId(n.id)}
@@ -221,6 +281,7 @@ export default function NotesPage() {
                   >
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1 text-foreground">{n.title || "Untitled"}</p>
+                      {n.share_enabled && <LinkIcon className="h-3 w-3 text-primary" />}
                       {collabIds.has(n.id) && <Users className="h-3 w-3 text-secondary" />}
                     </div>
                     <p className="text-xs text-muted-foreground">
