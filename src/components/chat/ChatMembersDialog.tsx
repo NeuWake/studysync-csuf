@@ -93,6 +93,7 @@ export default function ChatMembersDialog({ open, onOpenChange, chatroomId, crea
       if (error) throw error;
     },
     onSuccess: () => {
+      markRoomRead(chatroomId);
       queryClient.invalidateQueries({ queryKey: ["chatrooms"] });
       queryClient.invalidateQueries({ queryKey: ["chatroom-members", chatroomId] });
       onOpenChange(false);
