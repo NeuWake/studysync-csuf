@@ -43,6 +43,7 @@ export default function ProfilePage() {
       if (profileData) {
         setProfile({
           fullName: profileData.full_name || "",
+          username: (profileData as any).username || "",
           avatarUrl: profileData.avatar_url || "",
           university: profileData.university || "",
           major: profileData.major || "",
