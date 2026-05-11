@@ -18,6 +18,10 @@ import {
   ExternalLink,
   LogIn,
   LogOut,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ShieldCheck,
 } from "lucide-react";
 
 // Google Identity Services types (kept inline — minimal surface we need).
@@ -61,6 +65,20 @@ const iconForMime = (mime: string) => {
   return FileIcon;
 };
 
+function StatusRow({ ok, pending, failed, label, detail }: { ok?: boolean; pending?: boolean; failed?: boolean; label: string; detail?: string }) {
+  const Icon = pending ? Loader2 : failed ? XCircle : ok ? CheckCircle2 : XCircle;
+  const tone = pending ? "text-muted-foreground" : failed ? "text-destructive" : ok ? "text-green-600 dark:text-green-500" : "text-muted-foreground";
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${tone} ${pending ? "animate-spin" : ""}`} />
+      <div className="min-w-0">
+        <div className="font-medium">{label}</div>
+        {detail && <div className="text-xs text-muted-foreground truncate">{detail}</div>}
+      </div>
+    </div>
+  );
+}
+
 const formatBytes = (bytes?: string) => {
   if (!bytes) return "—";
   const n = Number(bytes);
@@ -83,6 +101,8 @@ export default function DrivePage() {
     { id: "root", name: "My Drive" },
   ]);
   const tokenClientRef = useRef<ReturnType<NonNullable<Window["google"]>["accounts"]["oauth2"]["initTokenClient"]> | null>(null);
+  const [tokenExp, setTokenExp] = useState<number>(0);
+  const [apiCheck, setApiCheck] = useState<{ status: "idle" | "checking" | "ok" | "error"; message?: string; user?: string }>({ status: "idle" });
 
   const currentFolder = folderStack[folderStack.length - 1];
   const clientIdConfigured = useMemo(
@@ -111,7 +131,7 @@ export default function DrivePage() {
   useEffect(() => {
     const cached = sessionStorage.getItem(TOKEN_KEY);
     const exp = Number(sessionStorage.getItem(TOKEN_EXP_KEY) || 0);
-    if (cached && exp > Date.now() + 30_000) setToken(cached);
+    if (cached && exp > Date.now() + 30_000) { setToken(cached); setTokenExp(exp); }
   }, []);
 
   const initTokenClient = useCallback(() => {
@@ -129,6 +149,8 @@ export default function DrivePage() {
         sessionStorage.setItem(TOKEN_KEY, resp.access_token);
         sessionStorage.setItem(TOKEN_EXP_KEY, String(expiresAt));
         setToken(resp.access_token);
+        setTokenExp(expiresAt);
+        setApiCheck({ status: "idle" });
       },
     });
     return tokenClientRef.current;
@@ -148,10 +170,31 @@ export default function DrivePage() {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_EXP_KEY);
     setToken(null);
+    setTokenExp(0);
+    setApiCheck({ status: "idle" });
     setFiles([]);
     setFolderStack([{ id: "root", name: "My Drive" }]);
     if (t && window.google?.accounts?.oauth2) window.google.accounts.oauth2.revoke(t);
   };
+
+  const testDriveApi = useCallback(async () => {
+    if (!token) return;
+    setApiCheck({ status: "checking" });
+    try {
+      const res = await fetch("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName),storageQuota(limit,usage)", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setApiCheck({ status: "error", message: `${res.status}: ${txt.slice(0, 200)}` });
+        return;
+      }
+      const data = await res.json();
+      setApiCheck({ status: "ok", user: data?.user?.emailAddress || data?.user?.displayName, message: "Drive API responded successfully" });
+    } catch (e) {
+      setApiCheck({ status: "error", message: (e as Error).message });
+    }
+  }, [token]);
 
   const fetchFiles = useCallback(async () => {
     if (!token) return;
@@ -241,6 +284,63 @@ export default function DrivePage() {
           )}
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" /> Connection status
+          </CardTitle>
+          <CardDescription>Verify your OAuth connection and that the Drive API is reachable.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <StatusRow
+            ok={clientIdConfigured}
+            label="OAuth Client ID configured"
+            detail={clientIdConfigured ? `${GOOGLE_OAUTH_CLIENT_ID.slice(0, 16)}…` : "Missing in src/config/google.ts"}
+          />
+          <StatusRow
+            ok={gisReady}
+            pending={!gisReady}
+            label="Google Identity Services loaded"
+            detail={gisReady ? "accounts.google.com/gsi/client ready" : "Loading script…"}
+          />
+          <StatusRow
+            ok={!!token}
+            label="OAuth access token"
+            detail={
+              token
+                ? `Granted · expires ${new Date(tokenExp).toLocaleTimeString()} (${Math.max(0, Math.round((tokenExp - Date.now()) / 60000))} min)`
+                : "Not connected"
+            }
+          />
+          <StatusRow
+            ok={apiCheck.status === "ok"}
+            pending={apiCheck.status === "checking"}
+            failed={apiCheck.status === "error"}
+            label="Drive API reachable"
+            detail={
+              apiCheck.status === "ok"
+                ? `Responded as ${apiCheck.user ?? "user"}`
+                : apiCheck.status === "error"
+                ? apiCheck.message
+                : apiCheck.status === "checking"
+                ? "Pinging drive.googleapis.com…"
+                : "Not tested yet"
+            }
+          />
+          <div className="pt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={testDriveApi} disabled={!token || apiCheck.status === "checking"}>
+              {apiCheck.status === "checking" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+              Test Drive API
+            </Button>
+            {token && (
+              <Button size="sm" variant="ghost" onClick={connectDrive}>
+                Re-authorize
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {!token ? (
         <Card>
