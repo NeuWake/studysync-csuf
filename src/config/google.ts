@@ -10,6 +10,6 @@
 //    frontend code. The Drive token is requested in-browser via Google
 //    Identity Services and lives only in memory.)
 // =============================================================================
-export const GOOGLE_OAUTH_CLIENT_ID = "PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com";
+export const GOOGLE_OAUTH_CLIENT_ID = "149607452746-nn5vil19i9jb3rmkn4ij4o15amr2hi1k.apps.googleusercontent.com";
 
 export const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
