@@ -13,6 +13,7 @@ import {
   VolumeOff,
   Sparkles,
   Calculator,
+  NotebookPen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -42,6 +43,7 @@ const mainNav = [
   { title: "Chat", url: "/chat", icon: MessageSquare },
   { title: "AI Chat", url: "/ai-chat", icon: Sparkles },
   { title: "Whiteboard", url: "/whiteboard", icon: StickyNote },
+  { title: "Notes", url: "/notes", icon: NotebookPen },
   { title: "Statistics", url: "/stats", icon: BarChart3 },
   { title: "Grade Calculator", url: "/grade-calculator", icon: Calculator },
   { title: "Profile", url: "/profile", icon: User },

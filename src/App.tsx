@@ -17,6 +17,8 @@ import ChatPage from "@/pages/ChatPage";
 import AIChatPage from "@/pages/AIChatPage";
 import GradeCalculatorPage from "@/pages/GradeCalculatorPage";
 import WhiteboardPage from "@/pages/WhiteboardPage";
+import NotesPage from "@/pages/NotesPage";
+import SharedNotePage from "@/pages/SharedNotePage";
 import StatsPage from "@/pages/StatsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "@/pages/NotFound";
@@ -57,6 +59,7 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/confirm-email" element={<Navigate to="/auth" replace />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/notes/shared/:token" element={<SharedNotePage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
@@ -65,6 +68,7 @@ const App = () => (
                 <Route path="/ai-chat" element={<AIChatPage />} />
                 <Route path="/grade-calculator" element={<GradeCalculatorPage />} />
                 <Route path="/whiteboard" element={<WhiteboardPage />} />
+                <Route path="/notes" element={<NotesPage />} />
                 <Route path="/drive" element={<Navigate to="/assignments" replace />} />
                 <Route path="/stats" element={<StatsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
