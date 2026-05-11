@@ -32,30 +32,62 @@ export default function ResetPasswordPage() {
       const url = new URL(window.location.href);
       const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       const code = url.searchParams.get("code");
+      const tokenHash = url.searchParams.get("token_hash") || hash.get("token_hash");
+      const token = url.searchParams.get("token") || hash.get("token");
+      const typeParam = (url.searchParams.get("type") || hash.get("type") || "").toLowerCase();
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
       const errDesc = url.searchParams.get("error_description") || hash.get("error_description");
+      const errCode = url.searchParams.get("error_code") || hash.get("error_code");
 
-      if (errDesc) {
-        setError(errDesc);
+      if (errDesc || errCode) {
+        setError(errDesc || `Reset link error: ${errCode}`);
         return;
       }
 
-      // supabase-js may have already auto-exchanged the ?code= or parsed the
-      // implicit #access_token= on client init. Check for an existing session first
-      // to avoid "invalid/expired code" errors from re-exchanging a consumed code.
+      // Already-exchanged session (autoDetectSessionInUrl may have consumed it).
       const { data: existing } = await supabase.auth.getSession();
       if (existing.session) {
-        if (code || window.location.hash) {
-          window.history.replaceState(null, "", "/reset-password");
-        }
+        window.history.replaceState(null, "", "/reset-password");
         setReady(true);
         return;
       }
 
-      // PKCE recovery flow: exchange ?code= for a session if not yet exchanged.
+      // Implicit flow: #access_token=...&refresh_token=...&type=recovery
+      if (accessToken && refreshToken) {
+        const { error: setErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (setErr) {
+          setError(setErr.message);
+          return;
+        }
+        window.history.replaceState(null, "", "/reset-password");
+        setReady(true);
+        return;
+      }
+
+      // OTP flow: ?token_hash=...&type=recovery (or ?token=...)
+      if (tokenHash || (token && typeParam)) {
+        const { error: vErr } = await supabase.auth.verifyOtp(
+          tokenHash
+            ? { token_hash: tokenHash, type: "recovery" }
+            : { token: token!, type: "recovery", email: url.searchParams.get("email") || "" }
+        );
+        if (vErr) {
+          setError(vErr.message);
+          return;
+        }
+        window.history.replaceState(null, "", "/reset-password");
+        setReady(true);
+        return;
+      }
+
+      // PKCE flow: ?code=...
       if (code) {
         const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
         if (exErr) {
-          // Race: the global client may have just consumed the code.
           const { data: after } = await supabase.auth.getSession();
           if (after.session) {
             window.history.replaceState(null, "", "/reset-password");
@@ -70,8 +102,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // No code, no hash, no session — wait briefly for PASSWORD_RECOVERY event;
-      // if it never arrives, surface a clear error.
+      // Wait briefly for PASSWORD_RECOVERY event; otherwise show error.
       setTimeout(async () => {
         if (cancelled) return;
         const { data: late } = await supabase.auth.getSession();
