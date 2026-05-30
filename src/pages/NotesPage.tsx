@@ -98,6 +98,19 @@ export default function NotesPage() {
     }
     setNotes((data as Note[]) || []);
     setCollabIds(new Set((data || []).filter((n: any) => n.user_id !== user.id).map((n: any) => n.id)));
+
+    // Find which of my own notes have collaborators (so they go in "Shared")
+    const myNoteIds = (data || []).filter((n: any) => n.user_id === user.id).map((n: any) => n.id);
+    if (myNoteIds.length > 0) {
+      const { data: collabs } = await supabase
+        .from("note_collaborators")
+        .select("note_id")
+        .in("note_id", myNoteIds);
+      setSharedNoteIds(new Set((collabs || []).map((c: any) => c.note_id)));
+    } else {
+      setSharedNoteIds(new Set());
+    }
+
     if (!activeId && data && data.length > 0) setActiveId(data[0].id);
   };
 
