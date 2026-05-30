@@ -31,8 +31,7 @@ interface NoteEditorProps {
 export function NoteEditor({ content, editable = true, onChange, onTyping }: NoteEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Underline,
+      StarterKit.configure({ link: false }),
       Placeholder.configure({ placeholder: "Start typing your note..." }),
       Link.configure({ openOnClick: true, autolink: true, HTMLAttributes: { class: "text-primary underline" } }),
     ],
