@@ -266,11 +266,11 @@ export default function NotesPage() {
             )}
           </div>
           <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <TabsList className="grid grid-cols-4 h-8">
-              <TabsTrigger value="all" className="text-xs px-1">All</TabsTrigger>
-              <TabsTrigger value="mine" className="text-xs px-1">Mine</TabsTrigger>
-              <TabsTrigger value="shared" className="text-xs px-1">Shared</TabsTrigger>
-              <TabsTrigger value="public" className="text-xs px-1">Public</TabsTrigger>
+            <TabsList className="grid grid-cols-4 h-8 w-full gap-0.5 p-0.5">
+              <TabsTrigger value="all" className="text-[11px] px-0">All</TabsTrigger>
+              <TabsTrigger value="mine" className="text-[11px] px-0">Mine</TabsTrigger>
+              <TabsTrigger value="shared" className="text-[11px] px-0">Shared</TabsTrigger>
+              <TabsTrigger value="public" className="text-[11px] px-0">Public</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -321,36 +321,44 @@ export default function NotesPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 min-w-0">
               <Input
                 value={active.title}
                 onChange={(e) => persistChanges(active.id, { title: e.target.value })}
                 placeholder="Note title"
-                className="text-lg font-semibold border-none bg-transparent focus-visible:ring-1"
+                className="flex-1 min-w-0 text-lg font-semibold border-none bg-transparent focus-visible:ring-1 px-2"
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportNoteToPdf(active.title, active.content)}
-                title="Export as PDF"
-              >
-                <Download className="h-4 w-4 mr-1" /> PDF
-              </Button>
-              {isOwner && (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
-                    <Share2 className="h-4 w-4 mr-1" /> Share
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setDeleteId(active.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-              {!isOwner && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1 px-2">
-                  <Users className="h-3 w-3" /> Shared with you
-                </span>
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportNoteToPdf(active.title, active.content)}
+                  title="Export as PDF"
+                >
+                  <Download className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">PDF</span>
+                </Button>
+                {isOwner ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+                      <Share2 className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Share</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteId(active.id)}
+                      title="Delete note"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 px-2 whitespace-nowrap">
+                    <Users className="h-3 w-3" /> Shared with you
+                  </span>
+                )}
+              </div>
             </div>
             <NotePresence noteId={active.id} pingRef={typingPingRef} />
             <div className="flex-1 overflow-auto">
