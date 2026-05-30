@@ -45,24 +45,34 @@ export function ShareNoteDialog({
   }, [note.share_enabled, note.id]);
 
   const loadCollabs = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("note_collaborators")
       .select("id, user_id")
       .eq("note_id", note.id);
+    if (error) {
+      console.error("loadCollabs note_collaborators error", error);
+      return;
+    }
     if (!data) return;
     const ids = data.map((d) => d.user_id);
     if (ids.length === 0) {
       setCollabs([]);
       return;
     }
-    const { data: profs } = await supabase
-      .from("profiles")
+    const { data: profs, error: profErr } = await supabase
+      .from("public_profiles")
       .select("user_id, full_name, username")
       .in("user_id", ids);
+    if (profErr) console.error("loadCollabs profiles error", profErr);
     setCollabs(
       data.map((d) => {
-        const p = profs?.find((x) => x.user_id === d.user_id);
-        return { id: d.id, user_id: d.user_id, full_name: p?.full_name ?? null, username: p?.username ?? null };
+        const p = profs?.find((x: any) => x.user_id === d.user_id);
+        return {
+          id: d.id,
+          user_id: d.user_id,
+          full_name: p?.full_name ?? null,
+          username: p?.username ?? null,
+        };
       }),
     );
   };
