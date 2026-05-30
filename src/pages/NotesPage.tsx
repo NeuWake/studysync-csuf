@@ -44,6 +44,7 @@ export default function NotesPage() {
   const [manageSharesOpen, setManageSharesOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [collabIds, setCollabIds] = useState<Set<string>>(new Set());
+  const [sharedNoteIds, setSharedNoteIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "mine" | "shared" | "public">("all");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -67,17 +68,21 @@ export default function NotesPage() {
   const filteredNotes = useMemo(() => {
     const q = search.trim().toLowerCase();
     return notes.filter((n) => {
-      // Filter by ownership/sharing
-      if (filter === "mine" && (!user || n.user_id !== user.id)) return false;
-      if (filter === "shared" && (!user || n.user_id === user.id)) return false;
-      if (filter === "public" && !n.share_enabled) return false;
+      const isMine = !!user && n.user_id === user.id;
+      const isSharedWithMe = !!user && n.user_id !== user.id;
+      const hasCollaborators = sharedNoteIds.has(n.id) || isSharedWithMe;
+      const isPublic = n.share_enabled;
+      // Sections are mutually exclusive: Public > Shared > Mine
+      if (filter === "public" && !isPublic) return false;
+      if (filter === "shared" && (isPublic || !hasCollaborators)) return false;
+      if (filter === "mine" && (!isMine || isPublic || hasCollaborators)) return false;
       if (!q) return true;
       const title = (n.title || "").toLowerCase();
       if (title.includes(q)) return true;
       const body = extractText(n.content).toLowerCase();
       return body.includes(q);
     });
-  }, [notes, search, filter, user?.id]);
+  }, [notes, search, filter, user?.id, sharedNoteIds]);
 
   const loadNotes = async () => {
     if (!user) return;
@@ -93,6 +98,19 @@ export default function NotesPage() {
     }
     setNotes((data as Note[]) || []);
     setCollabIds(new Set((data || []).filter((n: any) => n.user_id !== user.id).map((n: any) => n.id)));
+
+    // Find which of my own notes have collaborators (so they go in "Shared")
+    const myNoteIds = (data || []).filter((n: any) => n.user_id === user.id).map((n: any) => n.id);
+    if (myNoteIds.length > 0) {
+      const { data: collabs } = await supabase
+        .from("note_collaborators")
+        .select("note_id")
+        .in("note_id", myNoteIds);
+      setSharedNoteIds(new Set((collabs || []).map((c: any) => c.note_id)));
+    } else {
+      setSharedNoteIds(new Set());
+    }
+
     if (!activeId && data && data.length > 0) setActiveId(data[0].id);
   };
 
