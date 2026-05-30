@@ -266,11 +266,11 @@ export default function NotesPage() {
             )}
           </div>
           <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <TabsList className="grid grid-cols-4 h-8">
-              <TabsTrigger value="all" className="text-xs px-1">All</TabsTrigger>
-              <TabsTrigger value="mine" className="text-xs px-1">Mine</TabsTrigger>
-              <TabsTrigger value="shared" className="text-xs px-1">Shared</TabsTrigger>
-              <TabsTrigger value="public" className="text-xs px-1">Public</TabsTrigger>
+            <TabsList className="grid grid-cols-4 h-8 w-full gap-0.5 p-0.5">
+              <TabsTrigger value="all" className="text-[11px] px-0">All</TabsTrigger>
+              <TabsTrigger value="mine" className="text-[11px] px-0">Mine</TabsTrigger>
+              <TabsTrigger value="shared" className="text-[11px] px-0">Shared</TabsTrigger>
+              <TabsTrigger value="public" className="text-[11px] px-0">Public</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
