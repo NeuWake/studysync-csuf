@@ -177,9 +177,7 @@ export default function NotesPage() {
       // Use TipTap's static generateJSON would need extensions; instead use a one-off editor.
       const { Editor } = await import("@tiptap/react");
       const StarterKit = (await import("@tiptap/starter-kit")).default;
-      const Underline = (await import("@tiptap/extension-underline")).default;
-      const Link = (await import("@tiptap/extension-link")).default;
-      const tmp = new Editor({ extensions: [StarterKit, Underline, Link], content: html });
+      const tmp = new Editor({ extensions: [StarterKit], content: html });
       const json = tmp.getJSON();
       tmp.destroy();
       const { error: upErr } = await supabase.from("notes").update({ content: json }).eq("id", noteId);
