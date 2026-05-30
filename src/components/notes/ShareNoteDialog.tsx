@@ -162,7 +162,7 @@ export function ShareNoteDialog({
                   <div key={c.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/40">
                     <Avatar className="h-7 w-7">
                       <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                        {c.full_name?.[0]?.toUpperCase() || "?"}
+                        {(c.full_name || c.username || "?")[0]?.toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
