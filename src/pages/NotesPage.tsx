@@ -68,17 +68,21 @@ export default function NotesPage() {
   const filteredNotes = useMemo(() => {
     const q = search.trim().toLowerCase();
     return notes.filter((n) => {
-      // Filter by ownership/sharing
-      if (filter === "mine" && (!user || n.user_id !== user.id)) return false;
-      if (filter === "shared" && (!user || n.user_id === user.id)) return false;
-      if (filter === "public" && !n.share_enabled) return false;
+      const isMine = !!user && n.user_id === user.id;
+      const isSharedWithMe = !!user && n.user_id !== user.id;
+      const hasCollaborators = sharedNoteIds.has(n.id) || isSharedWithMe;
+      const isPublic = n.share_enabled;
+      // Sections are mutually exclusive: Public > Shared > Mine
+      if (filter === "public" && !isPublic) return false;
+      if (filter === "shared" && (isPublic || !hasCollaborators)) return false;
+      if (filter === "mine" && (!isMine || isPublic || hasCollaborators)) return false;
       if (!q) return true;
       const title = (n.title || "").toLowerCase();
       if (title.includes(q)) return true;
       const body = extractText(n.content).toLowerCase();
       return body.includes(q);
     });
-  }, [notes, search, filter, user?.id]);
+  }, [notes, search, filter, user?.id, sharedNoteIds]);
 
   const loadNotes = async () => {
     if (!user) return;
